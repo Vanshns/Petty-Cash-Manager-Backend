@@ -1,50 +1,134 @@
 const prisma = require("../config/db");
 
-const { hashPassword } = require("../utils/password");
+const {
+  hashPassword,
+} = require("../utils/password");
 
-const createAccount = async (data) => {
+const ROLES = require(
+  "../constants/roles"
+);
+
+/*
+|--------------------------------------------------------------------------
+| Helpers
+|--------------------------------------------------------------------------
+*/
+
+const ensureUsernameAvailable =
+  async (username) => {
+    const existingAccount =
+      await prisma.account.findUnique({
+        where: {
+          username,
+        },
+      });
+
+    if (existingAccount) {
+      throw new Error(
+        "Username already exists"
+      );
+    }
+  };
+
+/*
+|--------------------------------------------------------------------------
+| Admin
+|--------------------------------------------------------------------------
+*/
+
+const createAdmin = async (
+  data
+) => {
   const {
     username,
     password,
-    role,
+  } = data;
+
+  await ensureUsernameAvailable(
+    username
+  );
+
+  const passwordHash =
+    await hashPassword(password);
+
+  return prisma.account.create({
+    data: {
+      username,
+
+      passwordHash,
+
+      role: ROLES.ADMIN
+    },
+  });
+};
+
+/*
+|--------------------------------------------------------------------------
+| Accountant
+|--------------------------------------------------------------------------
+*/
+
+const createAccountant =
+  async (data) => {
+    const {
+      username,
+      password,
+    } = data;
+
+    await ensureUsernameAvailable(
+      username
+    );
+
+    const passwordHash =
+      await hashPassword(password);
+
+    return prisma.account.create({
+      data: {
+        username,
+
+        passwordHash,
+
+        role: ROLES.ACCOUNTANT
+      },
+    });
+  };
+
+/*
+|--------------------------------------------------------------------------
+| Centre
+|--------------------------------------------------------------------------
+*/
+
+const createCentre = async (
+  data
+) => {
+  const {
+    username,
+    password,
     centreName,
     minimumBalance,
     transactionLimit,
   } = data;
 
-  const existingAccount =
-    await prisma.account.findUnique({
-      where: {
-        username,
-      },
-    });
-
-  if (existingAccount) {
-    throw new Error("Username already exists");
-  }
+  await ensureUsernameAvailable(
+    username
+  );
 
   const passwordHash =
     await hashPassword(password);
 
-  return prisma.$transaction(async (tx) => {
-    const account = await tx.account.create({
-      data: {
-        username,
-        passwordHash,
-        role,
-      },
-    });
+  return prisma.$transaction(
+    async (tx) => {
+      const account =
+        await tx.account.create({
+          data: {
+            username,
 
-    if (role === "CENTRE") {
-      if (
-        !centreName ||
-        minimumBalance == null ||
-        transactionLimit == null
-      ) {
-        throw new Error(
-          "Centre configuration is required"
-        );
-      }
+            passwordHash,
+
+            role: ROLES.CENTRE
+          },
+        });
 
       await tx.centre.create({
         data: {
@@ -56,22 +140,36 @@ const createAccount = async (data) => {
 
           transactionLimit,
 
-          accountId: account.id,
+          accountId:
+            account.id,
         },
       });
+
+      return account;
     }
-
-    return account;
-  });
+  );
 };
 
-const createCategory = async (name) => {
-  return prisma.category.create({
-    data: {
-      name,
-    },
-  });
-};
+/*
+|--------------------------------------------------------------------------
+| Categories
+|--------------------------------------------------------------------------
+*/
+
+const createCategory =
+  async (name) => {
+    return prisma.category.create({
+      data: {
+        name,
+      },
+    });
+  };
+
+/*
+|--------------------------------------------------------------------------
+| Dashboard
+|--------------------------------------------------------------------------
+*/
 
 const getDashboardMetrics =
   async () => {
@@ -84,7 +182,8 @@ const getDashboardMetrics =
 
       prisma.account.count({
         where: {
-          role: "ACCOUNTANT",
+          role:
+            "ACCOUNTANT",
         },
       }),
 
@@ -97,32 +196,71 @@ const getDashboardMetrics =
 
     return {
       totalCentres,
+
       totalAccountants,
+
       totalAdmins,
     };
   };
 
-  const getAccounts = async () => {
-  return prisma.account.findMany({
-    orderBy: {
-      createdAt: "desc",
-    },
+/*
+|--------------------------------------------------------------------------
+| Accounts
+|--------------------------------------------------------------------------
+*/
 
-    select: {
-      id: true,
+const getAccounts =
+  async () => {
+    return prisma.account.findMany({
+      orderBy: {
+        createdAt: "desc",
+      },
 
-      username: true,
+      select: {
+        id: true,
 
-      role: true,
+        username: true,
 
-      createdAt: true,
-    },
-  });
-};
+        role: true,
+
+        createdAt: true,
+      },
+    });
+  };
+
+  const resetPassword =
+  async ({
+    accountId,
+    newPassword,
+  }) => {
+    const passwordHash =
+      await hashPassword(
+        newPassword
+      );
+
+    return prisma.account.update({
+      where: {
+        id: accountId,
+      },
+
+      data: {
+        passwordHash,
+      },
+    });
+  };
 
 module.exports = {
-  createAccount,
+  createAdmin,
+
+  createAccountant,
+
+  createCentre,
+
   createCategory,
+
   getDashboardMetrics,
+
   getAccounts,
+
+  resetPassword,
 };

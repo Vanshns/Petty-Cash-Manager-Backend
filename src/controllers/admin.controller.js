@@ -6,114 +6,186 @@ const adminService = require(
   "../services/admin.service"
 );
 
-const createAccount = asyncHandler(
-  async (req, res) => {
-    const account =
-      await adminService.createAccount(
-        req.validatedData
-      );
+/*
+|--------------------------------------------------------------------------
+| Create Admin
+|--------------------------------------------------------------------------
+*/
 
-    return res.status(201).json({
-      success: true,
+const createAdmin =
+  asyncHandler(
+    async (req, res) => {
+      const admin =
+        await adminService.createAdmin(
+          req.validatedData
+        );
 
-      message:
-        "Account created successfully",
+      return res.status(201).json({
+        success: true,
 
-      data: account,
-    });
-  }
-);
+        message:
+          "Admin created successfully",
 
-const createCentre = asyncHandler(
-  async (req, res) => {
-    const centre =
-      await adminService.createCentre(
-        req.validatedData
-      );
+        data: admin,
+      });
+    }
+  );
 
-    return res.status(201).json({
-      success: true,
+/*
+|--------------------------------------------------------------------------
+| Create Accountant
+|--------------------------------------------------------------------------
+*/
 
-      message:
-        "Centre created successfully",
+const createAccountant =
+  asyncHandler(
+    async (req, res) => {
+      const accountant =
+        await adminService.createAccountant(
+          req.validatedData
+        );
 
-      data: centre,
-    });
-  }
-);
+      return res.status(201).json({
+        success: true,
 
-const createCategory = asyncHandler(
-  async (req, res) => {
-    const category =
-      await adminService.createCategory(
-        req.validatedData.name
-      );
+        message:
+          "Accountant created successfully",
 
-    return res.status(201).json({
-      success: true,
+        data: accountant,
+      });
+    }
+  );
 
-      message:
-        "Category created successfully",
+/*
+|--------------------------------------------------------------------------
+| Create Centre
+|--------------------------------------------------------------------------
+*/
 
-      data: category,
-    });
-  }
-);
+const createCentre =
+  asyncHandler(
+    async (req, res) => {
+      const centre =
+        await adminService.createCentre(
+          req.validatedData
+        );
+
+      return res.status(201).json({
+        success: true,
+
+        message:
+          "Centre created successfully",
+
+        data: centre,
+      });
+    }
+  );
+
+/*
+|--------------------------------------------------------------------------
+| Create Category
+|--------------------------------------------------------------------------
+*/
+
+const createCategory =
+  asyncHandler(
+    async (req, res) => {
+      const category =
+        await adminService.createCategory(
+          req.validatedData.name
+        );
+
+      return res.status(201).json({
+        success: true,
+
+        message:
+          "Category created successfully",
+
+        data: category,
+      });
+    }
+  );
+
+/*
+|--------------------------------------------------------------------------
+| Reset Password
+|--------------------------------------------------------------------------
+*/
 
 const resetPassword =
-  asyncHandler(async (req, res) => {
-    const result =
-      await adminService.resetPassword({
-        accountId:
-          req.params.accountId,
+  asyncHandler(
+    async (req, res) => {
+      const result =
+        await adminService.resetPassword({
+          accountId:
+            req.params.accountId,
 
-        newPassword:
-          req.validatedData
-            .newPassword,
+          newPassword:
+            req.validatedData
+              .newPassword,
+        });
+
+      return res.status(200).json({
+        success: true,
+
+        message:
+          "Password reset successfully",
+
+        data: result,
       });
+    }
+  );
 
-    return res.status(200).json({
-      success: true,
-
-      message:
-        "Password reset successfully",
-
-      data: result,
-    });
-  });
+/*
+|--------------------------------------------------------------------------
+| Dashboard Metrics
+|--------------------------------------------------------------------------
+*/
 
 const getDashboardMetrics =
-  asyncHandler(async (req, res) => {
-    const metrics =
-      await adminService.getDashboardMetrics();
+  asyncHandler(
+    async (req, res) => {
+      const metrics =
+        await adminService.getDashboardMetrics();
 
-    return res.status(200).json({
-      success: true,
+      return res.status(200).json({
+        success: true,
 
-      message:
-        "Dashboard metrics fetched successfully",
+        message:
+          "Dashboard metrics fetched successfully",
 
-      data: metrics,
-    });
-  });
+        data: metrics,
+      });
+    }
+  );
+
+/*
+|--------------------------------------------------------------------------
+| Get Accounts
+|--------------------------------------------------------------------------
+*/
 
 const getAccounts =
-  asyncHandler(async (req, res) => {
-    const accounts =
-      await adminService.getAccounts();
+  asyncHandler(
+    async (req, res) => {
+      const accounts =
+        await adminService.getAccounts();
 
-    return res.status(200).json({
-      success: true,
+      return res.status(200).json({
+        success: true,
 
-      message:
-        "Accounts fetched successfully",
+        message:
+          "Accounts fetched successfully",
 
-      data: accounts,
-    });
-  });
+        data: accounts,
+      });
+    }
+  );
 
 module.exports = {
-  createAccount,
+  createAdmin,
+
+  createAccountant,
 
   createCentre,
 

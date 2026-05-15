@@ -1,52 +1,44 @@
-// const { z } = require("zod");
-
-// const createAccountSchema = z.object({
-//   username: z.string().min(3),
-
-//   password: z.string().min(6),
-
-//   role: z.enum(["ACCOUNTANT", "CENTRE"]),
-
-//   centreName: z.string().optional(),
-
-//   minimumBalance: z.number().optional(),
-
-//   transactionLimit: z.number().optional(),
-// });
-
-// const createCategorySchema = z.object({
-//   name: z.string().min(1),
-// });
-
-// module.exports = {
-//   createAccountSchema,
-//   createCategorySchema,
-// };
-
 const z = require("zod");
 
-const ROLES = require(
-  "../constants/roles"
-);
+/*
+|--------------------------------------------------------------------------
+| Admin
+|--------------------------------------------------------------------------
+*/
 
-const createAccountSchema =
+const createAdminSchema =
   z.object({
     username:
       z.string().min(3),
 
     password:
       z.string().min(6),
-
-    role: z.enum([
-      ROLES.ADMIN,
-      ROLES.ACCOUNTANT,
-      ROLES.CENTRE,
-    ]),
   });
+
+/*
+|--------------------------------------------------------------------------
+| Accountant
+|--------------------------------------------------------------------------
+*/
+
+const createAccountantSchema =
+  z.object({
+    username:
+      z.string().min(3),
+
+    password:
+      z.string().min(6),
+  });
+
+/*
+|--------------------------------------------------------------------------
+| Centre
+|--------------------------------------------------------------------------
+*/
 
 const createCentreSchema =
   z.object({
-    name:
+    centreName:
       z.string().min(2),
 
     username:
@@ -56,17 +48,33 @@ const createCentreSchema =
       z.string().min(6),
 
     minimumBalance:
-      z.coerce.number().positive(),
+      z.coerce
+        .number()
+        .positive(),
 
     transactionLimit:
-      z.coerce.number().positive(),
+      z.coerce
+        .number()
+        .positive(),
   });
+
+/*
+|--------------------------------------------------------------------------
+| Category
+|--------------------------------------------------------------------------
+*/
 
 const createCategorySchema =
   z.object({
     name:
       z.string().min(2),
   });
+
+/*
+|--------------------------------------------------------------------------
+| Reset Password
+|--------------------------------------------------------------------------
+*/
 
 const resetPasswordSchema =
   z.object({
@@ -75,7 +83,9 @@ const resetPasswordSchema =
   });
 
 module.exports = {
-  createAccountSchema,
+  createAdminSchema,
+
+  createAccountantSchema,
 
   createCentreSchema,
 

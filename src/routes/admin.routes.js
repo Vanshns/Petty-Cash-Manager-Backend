@@ -18,14 +18,7 @@ const adminController = require(
   "../controllers/admin.controller"
 );
 
-const {
-  createAccountSchema,
-  createCentreSchema,
-  createCategorySchema,
-  resetPasswordSchema,
-} = require(
-  "../validators/admin.validator"
-);
+
 
 const ROLES = require(
   "../constants/roles"
@@ -39,7 +32,7 @@ router.use(
 
 /*
 |--------------------------------------------------------------------------
-| Dashboard
+| Get Dashboard Metrics 
 |--------------------------------------------------------------------------
 */
 
@@ -50,7 +43,7 @@ router.get(
 
 /*
 |--------------------------------------------------------------------------
-| Accounts
+| Get Accounts
 |--------------------------------------------------------------------------
 */
 
@@ -59,16 +52,51 @@ router.get(
   adminController.getAccounts
 );
 
-router.post(
-  "/accounts",
+/*
+|--------------------------------------------------------------------------
+| Creating different types of Accounts
+|--------------------------------------------------------------------------
+*/
 
-  validationMiddleware(
-    createAccountSchema
-  ),
-
-  adminController.createAccount
+const {
+  createAdminSchema,
+  createAccountantSchema,
+  createCentreSchema,
+  createCategorySchema,
+  resetPasswordSchema,
+} = require(
+  "../validators/admin.validator"
 );
 
+router.post(
+  "/admins",
+  validationMiddleware(
+    createAdminSchema
+  ),
+  adminController.createAdmin
+);
+
+router.post(
+  "/accountants",
+  validationMiddleware(
+    createAccountantSchema
+  ),
+  adminController.createAccountant
+);
+
+router.post(
+  "/centres",
+  validationMiddleware(
+    createCentreSchema
+  ),
+  adminController.createCentre
+);
+
+/*
+|--------------------------------------------------------------------------
+| Reset Password
+|--------------------------------------------------------------------------
+*/
 router.patch(
   "/accounts/:accountId/reset-password",
 
@@ -79,25 +107,11 @@ router.patch(
   adminController.resetPassword
 );
 
-/*
-|--------------------------------------------------------------------------
-| Centres
-|--------------------------------------------------------------------------
-*/
 
-router.post(
-  "/centres",
-
-  validationMiddleware(
-    createCentreSchema
-  ),
-
-  adminController.createCentre
-);
 
 /*
 |--------------------------------------------------------------------------
-| Categories
+| create Categories
 |--------------------------------------------------------------------------
 */
 
