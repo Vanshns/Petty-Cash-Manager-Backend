@@ -1,11 +1,15 @@
 const prisma = require("../config/db");
 
+const uploadFile = require(
+  "../utils/uploadFile"
+);
+
 const createTransaction = async ({
   accountId,
   amount,
   categoryId,
   description,
-  billImageUrl,
+  file,
 }) => {
   return prisma.$transaction(async (tx) => {
     const centre = await tx.centre.findUnique({
@@ -30,9 +34,20 @@ const createTransaction = async ({
     }
 
     const requiresApproval =
-      amount > Number(centre.transactionLimit);
+      amount >
+      Number(centre.transactionLimit);
 
-    if (!requiresApproval && !billImageUrl) {
+    let billImageUrl = null;
+
+    if (file) {
+      billImageUrl =
+        await uploadFile(file);
+    }
+
+    if (
+      !requiresApproval &&
+      !billImageUrl
+    ) {
       throw new Error(
         "Bill image required for standard transactions"
       );
@@ -47,7 +62,7 @@ const createTransaction = async ({
       );
     }
 
-    let status = requiresApproval
+    const status = requiresApproval
       ? "PENDING_APPROVAL"
       : "STANDARD";
 
@@ -90,31 +105,33 @@ const createTransaction = async ({
 
       if (
         Number(updatedCentre.balance) <
-        Number(updatedCentre.minimumBalance)
+        Number(
+          updatedCentre.minimumBalance
+        )
       ) {
         const existingAlert =
-            await tx.alert.findFirst({
-                where: {
-                centreId: centre.id,
+          await tx.alert.findFirst({
+            where: {
+              centreId: centre.id,
 
-                type: "LOW_BALANCE",
+              type: "LOW_BALANCE",
 
-                isResolved: false,
-                },
-            });
+              isResolved: false,
+            },
+          });
 
-            if (!existingAlert) {
-            await tx.alert.create({
-                data: {
-                centreId: centre.id,
+        if (!existingAlert) {
+          await tx.alert.create({
+            data: {
+              centreId: centre.id,
 
-                type: "LOW_BALANCE",
+              type: "LOW_BALANCE",
 
-                message:
-                    "Centre balance below minimum threshold",
-                },
-            });
-            }
+              message:
+                "Centre balance below minimum threshold",
+            },
+          });
+        }
       }
     }
 
@@ -175,7 +192,39 @@ const getDashboardMetrics =
     };
   };
 
+  const getTransactions = async (
+  accountId
+) => {
+  const centre =
+    await prisma.centre.findUnique({
+      where: {
+        accountId,
+      },
+    });
+
+  if (!centre) {
+    throw new Error(
+      "Centre not found"
+    );
+  }
+
+  return prisma.transaction.findMany({
+    where: {
+      centreId: centre.id,
+    },
+
+    include: {
+      category: true,
+    },
+
+    orderBy: {
+      createdAt: "desc",
+    },
+  });
+};
+
 module.exports = {
   createTransaction,
   getDashboardMetrics,
+  getTransactions,
 };

@@ -185,6 +185,26 @@ const exportTransactions =
     });
   });
 
+  const updateCentreConfig =
+  asyncHandler(async (req, res) => {
+    const centre =
+      await accountantService.updateCentreConfig({
+        centreId:
+          req.params.centreId,
+
+        ...req.validatedData,
+      });
+
+    return res.status(200).json({
+      success: true,
+
+      message:
+        "Centre configuration updated successfully",
+
+      data: centre,
+    });
+  });
+
 module.exports = {
   addFunds,
   deductFunds,
@@ -196,4 +216,5 @@ module.exports = {
   getTransactionHistory,
   exportTransactions,
   getDashboardMetrics,
+  updateCentreConfig,
 };

@@ -32,6 +32,12 @@ const {
   historyQuerySchema,
 } = require("../validators/accountant.validator");
 
+const {
+  updateCentreConfigSchema,
+} = require(
+  "../validators/accountant.validator"
+);
+
 router.post(
   "/centres/:centreId/add-funds",
   validationMiddleware(updateBalanceSchema),
@@ -99,6 +105,16 @@ router.get(
 router.get(
   "/dashboard",
   accountantController.getDashboardMetrics
+);
+
+router.patch(
+  "/centres/:centreId",
+
+  validationMiddleware(
+    updateCentreConfigSchema
+  ),
+
+  accountantController.updateCentreConfig
 );
 
 module.exports = router;

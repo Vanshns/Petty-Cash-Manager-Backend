@@ -10,6 +10,10 @@ const roleMiddleware = require(
   "../middleware/role.middleware"
 );
 
+const upload = require(
+  "../middleware/upload.middleware"
+);
+
 const ROLES = require("../constants/roles");
 
 router.use(authMiddleware);
@@ -30,15 +34,17 @@ const {
 
 router.post(
   "/transactions",
+
+  upload.single("bill"),
+
   validationMiddleware(
     createTransactionSchema
   ),
+
   centreController.createTransaction
 );
 
-const upload = require(
-  "../middleware/upload.middleware"
-);
+
 router.post(
   "/transactions/:transactionId/upload-bill",
   upload.single("bill"),
@@ -48,6 +54,11 @@ router.post(
 router.get(
   "/dashboard",
   centreController.getDashboardMetrics
+);
+
+router.get(
+  "/transactions",
+  centreController.getTransactions
 );
 
 module.exports = router;

@@ -102,8 +102,27 @@ const getDashboardMetrics =
     };
   };
 
+  const getAccounts = async () => {
+  return prisma.account.findMany({
+    orderBy: {
+      createdAt: "desc",
+    },
+
+    select: {
+      id: true,
+
+      username: true,
+
+      role: true,
+
+      createdAt: true,
+    },
+  });
+};
+
 module.exports = {
   createAccount,
   createCategory,
   getDashboardMetrics,
+  getAccounts,
 };

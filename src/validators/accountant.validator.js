@@ -29,8 +29,18 @@ const historyQuerySchema = z.object({
   limit: z.coerce.number().min(1).max(100).optional(), // Pagination
 });
 
+const updateCentreConfigSchema =
+  z.object({
+    minimumBalance:
+      z.coerce.number().positive(),
+
+    transactionLimit:
+      z.coerce.number().positive(),
+});
+
 module.exports = {
   updateBalanceSchema,
   approveRejectSchema,
   historyQuerySchema,
+  updateCentreConfigSchema
 };

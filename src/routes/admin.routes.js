@@ -10,40 +10,105 @@ const roleMiddleware = require(
   "../middleware/role.middleware"
 );
 
-const adminController = require(
-  "../controllers/admin.controller"
-);
-
 const validationMiddleware = require(
   "../middleware/validation.middleware"
 );
 
+const adminController = require(
+  "../controllers/admin.controller"
+);
+
 const {
   createAccountSchema,
+  createCentreSchema,
   createCategorySchema,
-} = require("../validators/admin.validator");
+  resetPasswordSchema,
+} = require(
+  "../validators/admin.validator"
+);
 
-const ROLES = require("../constants/roles");
+const ROLES = require(
+  "../constants/roles"
+);
 
 router.use(authMiddleware);
 
-router.use(roleMiddleware(ROLES.ADMIN));
-
-router.post(
-  "/accounts",
-  validationMiddleware(createAccountSchema),
-  adminController.createAccount
+router.use(
+  roleMiddleware(ROLES.ADMIN)
 );
 
-router.post(
-  "/categories",
-  validationMiddleware(createCategorySchema),
-  adminController.createCategory
-);
+/*
+|--------------------------------------------------------------------------
+| Dashboard
+|--------------------------------------------------------------------------
+*/
 
 router.get(
   "/dashboard",
   adminController.getDashboardMetrics
+);
+
+/*
+|--------------------------------------------------------------------------
+| Accounts
+|--------------------------------------------------------------------------
+*/
+
+router.get(
+  "/accounts",
+  adminController.getAccounts
+);
+
+router.post(
+  "/accounts",
+
+  validationMiddleware(
+    createAccountSchema
+  ),
+
+  adminController.createAccount
+);
+
+router.patch(
+  "/accounts/:accountId/reset-password",
+
+  validationMiddleware(
+    resetPasswordSchema
+  ),
+
+  adminController.resetPassword
+);
+
+/*
+|--------------------------------------------------------------------------
+| Centres
+|--------------------------------------------------------------------------
+*/
+
+router.post(
+  "/centres",
+
+  validationMiddleware(
+    createCentreSchema
+  ),
+
+  adminController.createCentre
+);
+
+/*
+|--------------------------------------------------------------------------
+| Categories
+|--------------------------------------------------------------------------
+*/
+
+router.post(
+  "/categories",
+
+  validationMiddleware(
+    createCategorySchema
+  ),
+
+  adminController.createCategory
 );
 
 module.exports = router;

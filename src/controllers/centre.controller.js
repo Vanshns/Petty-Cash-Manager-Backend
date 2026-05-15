@@ -14,8 +14,8 @@ const createTransaction = asyncHandler(
 
         ...req.validatedData,
 
-        billImageUrl: req.body.billImageUrl,
-      });
+        file: req.file,
+    });
 
     return res.status(201).json({
       success: true,
@@ -113,8 +113,26 @@ const getDashboardMetrics =
     });
   });
 
+  const getTransactions =
+  asyncHandler(async (req, res) => {
+    const transactions =
+      await centreService.getTransactions(
+        req.user.id
+      );
+
+    return res.status(200).json({
+      success: true,
+
+      message:
+        "Transactions fetched successfully",
+
+      data: transactions,
+    });
+  });
+
 module.exports = {
   createTransaction,
   uploadBill,
   getDashboardMetrics,
+  getTransactions,
 };

@@ -491,6 +491,38 @@ const getTransactionHistory =
     };
   };
 
+  const updateCentreConfig =
+  async ({
+    centreId,
+    minimumBalance,
+    transactionLimit,
+  }) => {
+    const centre =
+      await prisma.centre.findUnique({
+        where: {
+          id: centreId,
+        },
+      });
+
+    if (!centre) {
+      throw new Error(
+        "Centre not found"
+      );
+    }
+
+    return prisma.centre.update({
+      where: {
+        id: centreId,
+      },
+
+      data: {
+        minimumBalance,
+
+        transactionLimit,
+      },
+    });
+  };
+
 module.exports = {
   addFunds,
   deductFunds,
@@ -502,4 +534,5 @@ module.exports = {
   getTransactionHistory,
   exportTransactionsToCSV,
   getDashboardMetrics,
+  updateCentreConfig,
 };
