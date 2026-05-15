@@ -165,6 +165,14 @@ const createCategory =
     });
   };
 
+const getCategories =
+async () => {
+  return prisma.category.findMany({
+    orderBy: {
+      name: "asc",
+    },
+  });
+};
 /*
 |--------------------------------------------------------------------------
 | Dashboard
@@ -263,4 +271,6 @@ module.exports = {
   getAccounts,
 
   resetPassword,
+
+  getCategories,
 };

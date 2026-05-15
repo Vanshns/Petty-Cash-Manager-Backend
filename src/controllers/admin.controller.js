@@ -182,6 +182,23 @@ const getAccounts =
     }
   );
 
+const getCategories =
+  asyncHandler(
+    async (req, res) => {
+      const categories =
+        await adminService.getCategories();
+
+      return res.status(200).json({
+        success: true,
+
+        message:
+          "Categories fetched successfully",
+
+        data: categories,
+      });
+    }
+  );
+
 module.exports = {
   createAdmin,
 
@@ -196,4 +213,6 @@ module.exports = {
   getDashboardMetrics,
 
   getAccounts,
+
+  getCategories,
 };

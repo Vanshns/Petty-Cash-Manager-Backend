@@ -125,4 +125,9 @@ router.post(
   adminController.createCategory
 );
 
+router.get(
+  "/categories",
+  adminController.getCategories
+);
+
 module.exports = router;

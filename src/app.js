@@ -36,13 +36,13 @@ app.use("/api/centre", centreRoutes);
 
 
 
-const categoryRoutes = require(
-  "./routes/category.routes"
-);
-app.use(
-  "/api/categories",
-  categoryRoutes
-);
+// const categoryRoutes = require(
+//   "./routes/category.routes"
+// );
+// app.use(
+//   "/api/categories",
+//   categoryRoutes
+// );
 
 app.use(errorMiddleware);
 
