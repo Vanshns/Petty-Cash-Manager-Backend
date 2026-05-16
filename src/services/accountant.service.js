@@ -1,3 +1,5 @@
+// add functionality later for uploading image when funds added or deducted
+
 const prisma = require("../config/db");
 
 const addFunds = async ({
@@ -73,52 +75,118 @@ const deductFunds = async ({
   note,
   accountantId,
 }) => {
-  return prisma.$transaction(async (tx) => {
-    const centre = await tx.centre.findUnique({
-      where: {
-        id: centreId,
-      },
-    });
-
-    if (!centre) {
-      throw new Error("Centre not found");
-    }
-
-    if (Number(centre.balance) < amount) {
-      throw new Error(
-        "Insufficient centre balance"
-      );
-    }
-
-    const updatedCentre =
-      await tx.centre.update({
-        where: {
-          id: centreId,
-        },
-
-        data: {
-          balance: {
-            decrement: amount,
+  return prisma.$transaction(
+    async (tx) => {
+      const centre =
+        await tx.centre.findUnique({
+          where: {
+            id: centreId,
           },
+        });
+
+      if (!centre) {
+        throw new Error(
+          "Centre not found"
+        );
+      }
+
+      if (
+        parseFloat(
+          centre.balance
+        ) < amount
+      ) {
+        throw new Error(
+          "Insufficient centre balance"
+        );
+      }
+
+      const updatedCentre =
+        await tx.centre.update({
+          where: {
+            id: centreId,
+          },
+
+          data: {
+            balance: {
+              decrement:
+                amount,
+            },
+          },
+        });
+
+      await tx.walletLedger.create({
+        data: {
+          centreId,
+
+          amount,
+
+          type: "DEBIT",
+
+          note,
+
+          createdById:
+            accountantId,
         },
       });
 
-    await tx.walletLedger.create({
-      data: {
-        centreId,
+      console.log(
+        "Updated Balance:",
+        parseFloat(
+          updatedCentre.balance
+        )
+      );
 
-        amount,
+      console.log(
+        "Minimum Balance:",
+        parseFloat(
+          updatedCentre.minimumBalance
+        )
+      );
 
-        type: "DEBIT",
+      if (
+        parseFloat(
+          updatedCentre.balance
+        ) <=
+        parseFloat(
+          updatedCentre.minimumBalance
+        )
+      ) {
+        const existingAlert =
+          await tx.alert.findFirst({
+            where: {
+              centreId,
 
-        note,
+              type:
+                "LOW_BALANCE",
 
-        createdById: accountantId,
-      },
-    });
+              isResolved: false,
+            },
+          });
 
-    return updatedCentre;
-  });
+        if (!existingAlert) {
+          await tx.alert.create({
+            data: {
+              centreId,
+
+              type:
+                "LOW_BALANCE",
+
+              message:
+                "Centre balance below minimum threshold",
+
+              isResolved: false,
+            },
+          });
+
+          console.log(
+            "LOW_BALANCE alert created"
+          );
+        }
+      }
+
+      return updatedCentre;
+    }
+  );
 };
 
 const getPendingTransactions =
@@ -143,161 +211,143 @@ const approveTransaction = async ({
   transactionId,
   accountantId,
 }) => {
-  return prisma.$transaction(async (tx) => {
-    const transaction =
-      await tx.transaction.findUnique({
-        where: {
-          id: transactionId,
-        },
+  return prisma.$transaction(
+    async (tx) => {
+      const transaction =
+        await tx.transaction.findUnique({
+          where: {
+            id: transactionId,
+          },
 
-        include: {
-          centre: true,
-        },
-      });
-
-    if (!transaction) {
-      throw new Error(
-        "Transaction not found"
-      );
-    }
-
-    if (
-      transaction.status !==
-      "PENDING_APPROVAL"
-    ) {
-      throw new Error(
-        "Transaction is not pending approval"
-      );
-    }
-
-    if (
-    Number(updatedCentre.balance) <
-    Number(updatedCentre.minimumBalance)
-    ) {
-    const existingAlert =
-        await tx.alert.findFirst({
-        where: {
-            centreId: updatedCentre.id,
-
-            type: "LOW_BALANCE",
-
-            isResolved: false,
-        },
+          include: {
+            centre: true,
+          },
         });
 
-    if (!existingAlert) {
-        await tx.alert.create({
-        data: {
-            centreId: updatedCentre.id,
+      if (!transaction) {
+        throw new Error(
+          "Transaction not found"
+        );
+      }
 
-            type: "LOW_BALANCE",
+      if (
+        transaction.status !==
+        "PENDING_APPROVAL"
+      ) {
+        throw new Error(
+          "Transaction is not pending approval"
+        );
+      }
 
-            message:
-            "Centre balance below minimum threshold",
-        },
-        });
-    }
-    }
+      /*
+      |--------------------------------------------------------------------------
+      | Check Centre Balance
+      |--------------------------------------------------------------------------
+      */
 
-    const updatedTransaction =
-      await tx.transaction.update({
-        where: {
-          id: transactionId,
-        },
+      if (
+        Number(
+          transaction.centre.balance
+        ) < Number(transaction.amount)
+      ) {
+        throw new Error(
+          "Insufficient centre balance"
+        );
+      }
 
-        data: {
-          status:
-            "APPROVED_PENDING_BILL",
+      /*
+      |--------------------------------------------------------------------------
+      | Deduct Centre Balance
+      |--------------------------------------------------------------------------
+      */
 
-          approvedById: accountantId,
+      const updatedCentre =
+        await tx.centre.update({
+          where: {
+            id:
+              transaction.centre.id,
+          },
 
-          approvedAt: new Date(),
-        },
-      });
-
-    const updatedCentre =
-      await tx.centre.findUnique({
-        where: {
-          id: transaction.centre.id,
-        },
-      });
-
-    if (
-      Number(updatedCentre.balance) <
-      Number(updatedCentre.minimumBalance)
-    ) {
-      const existingAlert =
-        await tx.alert.findFirst({
-            where: {
-            centreId: centre.id,
-
-            type: "LOW_BALANCE",
-
-            isResolved: false,
+          data: {
+            balance: {
+              decrement:
+                transaction.amount,
             },
+          },
         });
+
+      /*
+      |--------------------------------------------------------------------------
+      | Approve Transaction
+      |--------------------------------------------------------------------------
+      */
+
+      const updatedTransaction =
+        await tx.transaction.update({
+          where: {
+            id: transactionId,
+          },
+
+          data: {
+            status:
+              "APPROVED_PENDING_BILL",
+
+            approvedById:
+              accountantId,
+
+            approvedAt:
+              new Date(),
+          },
+        });
+
+      /*
+      |--------------------------------------------------------------------------
+      | Create Low Balance Alert
+      |--------------------------------------------------------------------------
+      */
+
+      if (
+        Number(
+          updatedCentre.balance
+        ) <
+        Number(
+          updatedCentre.minimumBalance
+        )
+      ) {
+        const existingAlert =
+          await tx.alert.findFirst({
+            where: {
+              centreId:
+                updatedCentre.id,
+
+              type:
+                "LOW_BALANCE",
+
+              isResolved: false,
+            },
+          });
 
         if (!existingAlert) {
-        await tx.alert.create({
+          await tx.alert.create({
             data: {
-            centreId: centre.id,
+              centreId:
+                updatedCentre.id,
 
-            type: "LOW_BALANCE",
+              type:
+                "LOW_BALANCE",
 
-            message:
+              message:
                 "Centre balance below minimum threshold",
             },
-        });
+          });
         }
-    }
+      }
 
-    return updatedTransaction;
-  });
+      return updatedTransaction;
+    }
+  );
 };
 
-// const rejectTransaction = async ({
-//   transactionId,
-//   rejectionReason,
-//   accountantId,
-// }) => {
-//   const transaction =
-//     await prisma.transaction.findUnique({
-//       where: {
-//         id: transactionId,
-//       },
-//     });
-
-//   if (!transaction) {
-//     throw new Error(
-//       "Transaction not found"
-//     );
-//   }
-
-//   if (
-//     transaction.status !==
-//     "PENDING_APPROVAL"
-//   ) {
-//     throw new Error(
-//       "Transaction is not pending approval"
-//     );
-//   }
-
-//   return prisma.transaction.update({
-//     where: {
-//       id: transactionId,
-//     },
-
-//     data: {
-//       status: "REJECTED",
-
-//       approvedById: accountantId,
-
-//       approvedAt: new Date(),
-
-//       rejectedReason,
-//     },
-//   });
-// };
 
 const rejectTransaction = async ({
   transactionId,

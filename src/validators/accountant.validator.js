@@ -1,13 +1,13 @@
 const { z } = require("zod");
 
 const updateBalanceSchema = z.object({
-  amount: z.number().positive(),
+  amount: z.coerce.number().positive(),
 
   note: z.string().optional(),
 });
 
 const approveRejectSchema = z.object({
-  rejectionReason: z.string().optional(),
+  rejectionReason: z.string().min(3),
 });
 const historyQuerySchema = z.object({
   status: z
