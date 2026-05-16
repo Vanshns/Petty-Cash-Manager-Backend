@@ -223,8 +223,72 @@ const getDashboardMetrics =
   });
 };
 
+const uploadBill = async ({
+  transactionId,
+  accountId,
+  file,
+}) => {
+  if (!file) {
+    throw new Error(
+      "File is required"
+    );
+  }
+
+  const transaction =
+    await prisma.transaction.findUnique({
+      where: {
+        id: transactionId,
+      },
+
+      include: {
+        centre: true,
+      },
+    });
+
+  if (!transaction) {
+    throw new Error(
+      "Transaction not found"
+    );
+  }
+
+  if (
+    transaction.centre.accountId !==
+    accountId
+  ) {
+    throw new Error(
+      "Unauthorized transaction access"
+    );
+  }
+
+  if (
+    transaction.status !==
+    "APPROVED_PENDING_BILL"
+  ) {
+    throw new Error(
+      "Bill upload not allowed for this transaction"
+    );
+  }
+
+  const imageUrl =
+    await uploadFile(file);
+
+  return prisma.transaction.update({
+    where: {
+      id: transaction.id,
+    },
+
+    data: {
+      billImageUrl: imageUrl,
+
+      status:
+        "APPROVED_COMPLETED",
+    },
+  });
+};
+
 module.exports = {
   createTransaction,
   getDashboardMetrics,
   getTransactions,
+  uploadBill,
 };

@@ -34,15 +34,8 @@ app.use("/api/accountant", accountantRoutes);
 const centreRoutes = require("./routes/centre.routes");
 app.use("/api/centre", centreRoutes);
 
-
-
-// const categoryRoutes = require(
-//   "./routes/category.routes"
-// );
-// app.use(
-//   "/api/categories",
-//   categoryRoutes
-// );
+const categoryRoutes = require("./routes/category.routes");
+app.use("/api/categories",categoryRoutes);
 
 app.use(errorMiddleware);
 

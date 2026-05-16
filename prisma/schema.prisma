@@ -89,19 +89,40 @@ model Transaction {
 
   billImageUrl String?
 
+  /*
+  |--------------------------------------------------------------------------
+  | Relations
+  |--------------------------------------------------------------------------
+  */
+
   categoryId String
   category   Category @relation(fields: [categoryId], references: [id])
 
   centreId String
   centre   Centre @relation(fields: [centreId], references: [id])
 
-  approvedById String?
-  approvedBy   Account?  @relation("ApprovedBy", fields: [approvedById], references: [id])
-  approvedAt   DateTime?
+  /*
+  |--------------------------------------------------------------------------
+  | Approval Workflow
+  |--------------------------------------------------------------------------
+  */
 
-  rejectedReason String?
+  approvedById String?
+
+  approvedBy Account? @relation("ApprovedBy", fields: [approvedById], references: [id])
+
+  approvedAt DateTime?
+
+  rejectionReason String?
+
+  /*
+  |--------------------------------------------------------------------------
+  | Timestamps
+  |--------------------------------------------------------------------------
+  */
 
   createdAt DateTime @default(now())
+
   updatedAt DateTime @updatedAt
 }
 

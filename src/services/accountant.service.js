@@ -207,147 +207,167 @@ const getPendingTransactions =
     });
   };
 
+// const AppError = require(
+//   "../utils/AppError"
+// );
+
 const approveTransaction = async ({
   transactionId,
   accountantId,
 }) => {
-  return prisma.$transaction(
-    async (tx) => {
-      const transaction =
-        await tx.transaction.findUnique({
-          where: {
-            id: transactionId,
-          },
+  return prisma.$transaction(async (tx) => {
+    /*
+    |--------------------------------------------------------------------------
+    | Fetch transaction
+    |--------------------------------------------------------------------------
+    */
 
-          include: {
-            centre: true,
-          },
-        });
+    const transaction =
+      await tx.transaction.findUnique({
+        where: {
+          id: transactionId,
+        },
 
-      if (!transaction) {
-        throw new Error(
-          "Transaction not found"
-        );
-      }
+        include: {
+          centre: true,
+        },
+      });
 
-      if (
-        transaction.status !==
-        "PENDING_APPROVAL"
-      ) {
-        throw new Error(
-          "Transaction is not pending approval"
-        );
-      }
+    /*
+    |--------------------------------------------------------------------------
+    | Validations
+    |--------------------------------------------------------------------------
+    */
 
-      /*
-      |--------------------------------------------------------------------------
-      | Check Centre Balance
-      |--------------------------------------------------------------------------
-      */
-
-      if (
-        Number(
-          transaction.centre.balance
-        ) < Number(transaction.amount)
-      ) {
-        throw new Error(
-          "Insufficient centre balance"
-        );
-      }
-
-      /*
-      |--------------------------------------------------------------------------
-      | Deduct Centre Balance
-      |--------------------------------------------------------------------------
-      */
-
-      const updatedCentre =
-        await tx.centre.update({
-          where: {
-            id:
-              transaction.centre.id,
-          },
-
-          data: {
-            balance: {
-              decrement:
-                transaction.amount,
-            },
-          },
-        });
-
-      /*
-      |--------------------------------------------------------------------------
-      | Approve Transaction
-      |--------------------------------------------------------------------------
-      */
-
-      const updatedTransaction =
-        await tx.transaction.update({
-          where: {
-            id: transactionId,
-          },
-
-          data: {
-            status:
-              "APPROVED_PENDING_BILL",
-
-            approvedById:
-              accountantId,
-
-            approvedAt:
-              new Date(),
-          },
-        });
-
-      /*
-      |--------------------------------------------------------------------------
-      | Create Low Balance Alert
-      |--------------------------------------------------------------------------
-      */
-
-      if (
-        Number(
-          updatedCentre.balance
-        ) <
-        Number(
-          updatedCentre.minimumBalance
-        )
-      ) {
-        const existingAlert =
-          await tx.alert.findFirst({
-            where: {
-              centreId:
-                updatedCentre.id,
-
-              type:
-                "LOW_BALANCE",
-
-              isResolved: false,
-            },
-          });
-
-        if (!existingAlert) {
-          await tx.alert.create({
-            data: {
-              centreId:
-                updatedCentre.id,
-
-              type:
-                "LOW_BALANCE",
-
-              message:
-                "Centre balance below minimum threshold",
-            },
-          });
-        }
-      }
-
-      return updatedTransaction;
+    if (!transaction) {
+      throw new AppError(
+        "Transaction not found",
+        404
+      );
     }
-  );
+
+    if (
+      transaction.status !==
+      "PENDING_APPROVAL"
+    ) {
+      throw new AppError(
+        "Transaction is not pending approval",
+        400
+      );
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | Check centre balance BEFORE approval
+    |--------------------------------------------------------------------------
+    */
+
+    if (
+      Number(
+        transaction.centre.balance
+      ) < Number(transaction.amount)
+    ) {
+      throw new AppError(
+        "Insufficient centre balance",
+        400
+      );
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | Deduct balance
+    |--------------------------------------------------------------------------
+    */
+
+    const updatedCentre =
+      await tx.centre.update({
+        where: {
+          id: transaction.centre.id,
+        },
+
+        data: {
+          balance: {
+            decrement:
+              transaction.amount,
+          },
+        },
+      });
+
+    /*
+    |--------------------------------------------------------------------------
+    | Approve transaction
+    |--------------------------------------------------------------------------
+    */
+
+    const updatedTransaction =
+      await tx.transaction.update({
+        where: {
+          id: transactionId,
+        },
+
+        data: {
+          status:
+            "APPROVED_PENDING_BILL",
+
+          approvedById:
+            accountantId,
+
+          approvedAt:
+            new Date(),
+        },
+      });
+
+    /*
+    |--------------------------------------------------------------------------
+    | Create low balance alert
+    |--------------------------------------------------------------------------
+    */
+
+    if (
+      Number(updatedCentre.balance) <
+      Number(
+        updatedCentre.minimumBalance
+      )
+    ) {
+      const existingAlert =
+        await tx.alert.findFirst({
+          where: {
+            centreId:
+              updatedCentre.id,
+
+            type:
+              "LOW_BALANCE",
+
+            isResolved: false,
+          },
+        });
+
+      if (!existingAlert) {
+        await tx.alert.create({
+          data: {
+            centreId:
+              updatedCentre.id,
+
+            type:
+              "LOW_BALANCE",
+
+            message:
+              "Centre balance below minimum threshold",
+
+            isResolved: false,
+          },
+        });
+      }
+    }
+
+    return updatedTransaction;
+  });
 };
 
+
+const AppError = require(
+  "../utils/AppError"
+);
 
 const rejectTransaction = async ({
   transactionId,
@@ -361,9 +381,16 @@ const rejectTransaction = async ({
       },
     });
 
+  /*
+  |--------------------------------------------------------------------------
+  | Validations
+  |--------------------------------------------------------------------------
+  */
+
   if (!transaction) {
-    throw new Error(
-      "Transaction not found"
+    throw new AppError(
+      "Transaction not found",
+      404
     );
   }
 
@@ -371,10 +398,17 @@ const rejectTransaction = async ({
     transaction.status !==
     "PENDING_APPROVAL"
   ) {
-    throw new Error(
-      "Transaction is not pending approval"
+    throw new AppError(
+      "Transaction is not pending approval",
+      400
     );
   }
+
+  /*
+  |--------------------------------------------------------------------------
+  | Reject transaction
+  |--------------------------------------------------------------------------
+  */
 
   return prisma.transaction.update({
     where: {
@@ -384,11 +418,13 @@ const rejectTransaction = async ({
     data: {
       status: "REJECTED",
 
-      approvedById: accountantId,
+      approvedById:
+        accountantId,
 
-      approvedAt: new Date(),
+      approvedAt:
+        new Date(),
 
-      rejectedReason: rejectionReason,
+      rejectionReason,
     },
   });
 };
@@ -474,30 +510,45 @@ const getTransactionHistory =
   };
 
   const exportTransactionsToCSV =
-  async (filters) => {
+  async (filters = {}) => {
     const transactions =
-      await getTransactionHistory(filters);
+      await getTransactionHistory(
+        filters
+      );
 
-    return transactions.map((t) => ({
-      id: t.id,
+    return transactions.map(
+      (t) => ({
+        id: t.id,
 
-      centre: t.centre.name,
+        centre:
+          t.centre?.name || "",
 
-      amount: t.amount,
+        amount:
+          Number(
+            t.amount
+          ).toFixed(2),
 
-      status: t.status,
+        status: t.status,
 
-      category: t.category.name,
+        category:
+          t.category?.name ||
+          "",
 
-      approvedBy:
-        t.approvedBy?.username || "",
+        approvedBy:
+          t.approvedBy
+            ?.username || "",
 
-      createdAt: t.createdAt,
+        createdAt:
+          t.createdAt,
 
-      approvedAt: t.approvedAt,
+        approvedAt:
+          t.approvedAt ||
+          "",
 
-      description: t.description,
-    }));
+        description:
+          t.description || "",
+      })
+    );
   };
 
   const getDashboardMetrics =
