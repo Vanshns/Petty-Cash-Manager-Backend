@@ -106,6 +106,26 @@ const createCategory =
     }
   );
 
+const archiveCategory =
+  asyncHandler(
+    async (req, res) => {
+
+      const category =
+        await adminService.archiveCategory(
+          req.params.categoryId
+        );
+
+      return res.status(200).json({
+        success: true,
+
+        message:
+          "Category archived successfully",
+
+        data: category,
+      });
+    }
+  );
+
 /*
 |--------------------------------------------------------------------------
 | Reset Password
@@ -215,4 +235,6 @@ module.exports = {
   getAccounts,
 
   getCategories,
+
+  archiveCategory,
 };

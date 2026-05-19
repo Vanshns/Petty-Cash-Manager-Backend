@@ -130,4 +130,10 @@ router.get(
   adminController.getCategories
 );
 
+router.patch(
+  "/categories/:categoryId/archive",
+
+  adminController.archiveCategory
+);
+
 module.exports = router;

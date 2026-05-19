@@ -158,21 +158,43 @@ const createCentre = async (
 
 const createCategory =
   async (name) => {
+
+    const normalizedName =
+      name.trim();
+
     return prisma.category.create({
       data: {
-        name,
+        name: normalizedName,
       },
     });
   };
 
 const getCategories =
-async () => {
-  return prisma.category.findMany({
-    orderBy: {
-      name: "asc",
-    },
-  });
-};
+  async () => {
+    return prisma.category.findMany({
+      where: {
+        isActive: true,
+      },
+
+      orderBy: {
+        name: "asc",
+      },
+    });
+  };
+
+const archiveCategory =
+  async (categoryId) => {
+
+    return prisma.category.update({
+      where: {
+        id: categoryId,
+      },
+
+      data: {
+        isActive: false,
+      },
+    });
+  };
 /*
 |--------------------------------------------------------------------------
 | Dashboard
@@ -273,4 +295,6 @@ module.exports = {
   resetPassword,
 
   getCategories,
+
+  archiveCategory,
 };
