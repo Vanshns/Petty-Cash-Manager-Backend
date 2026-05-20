@@ -2,191 +2,395 @@
 
 const prisma = require("../config/db");
 
-const addFunds = async ({
-  centreId,
-  amount,
-  note,
-  accountantId,
-}) => {
+const AppError = require(
+  "../utils/AppError"
+);
+
+// const addFunds = async ({
+//   centreId,
+//   amount,
+//   note,
+//   accountantId,
+// }) => {
+//   return prisma.$transaction(async (tx) => {
+//     const centre = await tx.centre.findUnique({
+//       where: {
+//         id: centreId,
+//       },
+//     });
+
+//     if (!centre) {
+//       throw new Error("Centre not found");
+//     }
+
+//     const updatedCentre =
+//       await tx.centre.update({
+//         where: {
+//           id: centreId,
+//         },
+
+//         data: {
+//           balance: {
+//             increment: amount,
+//           },
+//         },
+//       });
+
+//     await tx.walletLedger.create({
+//       data: {
+//         centreId,
+
+//         amount,
+
+//         type: "CREDIT",
+
+//         note,
+
+//         createdById: accountantId,
+//       },
+//     });
+
+//     if (
+//       Number(updatedCentre.balance) >=
+//       Number(updatedCentre.minimumBalance)
+//     ) {
+//       await tx.alert.updateMany({
+//         where: {
+//           centreId,
+
+//           type: "LOW_BALANCE",
+
+//           isResolved: false,
+//         },
+
+//         data: {
+//           isResolved: true,
+//         },
+//       });
+//     }
+
+//     return updatedCentre;
+//   });
+// };
+
+const addFunds = async ({ centreId, amount, note, accountantId }) => {
   return prisma.$transaction(async (tx) => {
     const centre = await tx.centre.findUnique({
-      where: {
-        id: centreId,
-      },
+      where: { id: centreId },
     });
 
     if (!centre) {
       throw new Error("Centre not found");
     }
 
-    const updatedCentre =
-      await tx.centre.update({
-        where: {
-          id: centreId,
+    // 1. Atomically increment the balance inside the database
+    const updatedCentre = await tx.centre.update({
+      where: { id: centreId },
+      data: {
+        balance: {
+          increment: amount,
         },
+      },
+    });
 
-        data: {
-          balance: {
-            increment: amount,
-          },
-        },
-      });
-
+    // 2. Log the transaction item to the wallet ledger
     await tx.walletLedger.create({
       data: {
         centreId,
-
         amount,
-
         type: "CREDIT",
-
         note,
-
         createdById: accountantId,
       },
     });
 
-    if (
-      Number(updatedCentre.balance) >=
-      Number(updatedCentre.minimumBalance)
-    ) {
+    // 3. Check if the newly updated balance meets or exceeds the minimum threshold
+    const currentBalance = Number(updatedCentre.balance);
+    const thresholdBalance = Number(updatedCentre.minimumBalance);
+
+    if (currentBalance >= thresholdBalance) {
+      // Resolve ALL open LOW_BALANCE alerts for this specific center
       await tx.alert.updateMany({
         where: {
           centreId,
-
           type: "LOW_BALANCE",
-
           isResolved: false,
         },
-
         data: {
           isResolved: true,
         },
       });
+      console.log(`✅ LOW_BALANCE alerts resolved for Centre: ${centreId}. Balance: ₹${currentBalance}`);
     }
 
     return updatedCentre;
   });
 };
 
-const deductFunds = async ({
-  centreId,
-  amount,
-  note,
-  accountantId,
-}) => {
-  return prisma.$transaction(
-    async (tx) => {
-      const centre =
-        await tx.centre.findUnique({
-          where: {
-            id: centreId,
-          },
-        });
+// const deductFunds = async ({
+//   centreId,
+//   amount,
+//   note,
+//   accountantId,
+// }) => {
+//   return prisma.$transaction(
+//     async (tx) => {
+//       const centre =
+//         await tx.centre.findUnique({
+//           where: {
+//             id: centreId,
+//           },
+//         });
 
-      if (!centre) {
-        throw new Error(
-          "Centre not found"
-        );
-      }
+//       if (!centre) {
+//         throw new Error(
+//           "Centre not found"
+//         );
+//       }
 
-      if (
-        parseFloat(
-          centre.balance
-        ) < amount
-      ) {
-        throw new Error(
-          "Insufficient centre balance"
-        );
-      }
+//       if (
+//         parseFloat(
+//           centre.balance
+//         ) < amount
+//       ) {
+//         throw new Error(
+//           "Insufficient centre balance"
+//         );
+//       }
 
-      const updatedCentre =
-        await tx.centre.update({
-          where: {
-            id: centreId,
-          },
+//       const updatedCentre =
+//         await tx.centre.update({
+//           where: {
+//             id: centreId,
+//           },
 
-          data: {
-            balance: {
-              decrement:
-                amount,
-            },
-          },
-        });
+//           data: {
+//             balance: {
+//               decrement:
+//                 amount,
+//             },
+//           },
+//         });
 
-      await tx.walletLedger.create({
-        data: {
+//       await tx.walletLedger.create({
+//         data: {
+//           centreId,
+
+//           amount,
+
+//           type: "DEBIT",
+
+//           note,
+
+//           createdById:
+//             accountantId,
+//         },
+//       });
+
+//       console.log(
+//         "Updated Balance:",
+//         parseFloat(
+//           updatedCentre.balance
+//         )
+//       );
+
+//       console.log(
+//         "Minimum Balance:",
+//         parseFloat(
+//           updatedCentre.minimumBalance
+//         )
+//       );
+
+//       if (
+//         parseFloat(
+//           updatedCentre.balance
+//         ) <=
+//         parseFloat(
+//           updatedCentre.minimumBalance
+//         )
+//       ) {
+//         const existingAlert =
+//           await tx.alert.findFirst({
+//             where: {
+//               centreId,
+
+//               type:
+//                 "LOW_BALANCE",
+
+//               isResolved: false,
+//             },
+//           });
+
+//         if (!existingAlert) {
+//           await tx.alert.create({
+//             data: {
+//               centreId,
+
+//               type:
+//                 "LOW_BALANCE",
+
+//               message:
+//                 "Centre balance below minimum threshold",
+
+//               isResolved: false,
+//             },
+//           });
+
+//           console.log(
+//             "LOW_BALANCE alert created"
+//           );
+//         }
+//       }
+
+//       return updatedCentre;
+//     }
+//   );
+// };
+
+// const deductFunds = async ({ centreId, amount, note, accountantId }) => {
+//   return prisma.$transaction(async (tx) => {
+//     const centre = await tx.centre.findUnique({
+//       where: { id: centreId },
+//     });
+
+//     if (!centre) {
+//       throw new Error("Centre not found");
+//     }
+
+//     // 1. Safety check using clean primitive parsing
+//     const currentBalanceBefore = Number(centre.balance);
+//     if (currentBalanceBefore < Number(amount)) {
+//       throw new Error("Insufficient centre balance");
+//     }
+
+//     // 2. Atomically decrement the balance inside the database
+//     const updatedCentre = await tx.centre.update({
+//       where: { id: centreId },
+//       data: {
+//         balance: {
+//           decrement: amount,
+//         },
+//       },
+//     });
+
+//     // 3. Log the transaction item to the wallet ledger
+//     await tx.walletLedger.create({
+//       data: {
+//         centreId,
+//         amount,
+//         type: "DEBIT",
+//         note,
+//         createdById: accountantId,
+//       },
+//     });
+
+//     // 4. Check if the balance dropped below the minimum threshold
+//     const postDeductionBalance = Number(updatedCentre.balance);
+//     const thresholdBalance = Number(updatedCentre.minimumBalance);
+
+//     if (postDeductionBalance < thresholdBalance) {
+//       // Check if there's an active, unresolved alert already out there
+//       const existingAlert = await tx.alert.findFirst({
+//         where: {
+//           centreId,
+//           type: "LOW_BALANCE",
+//           isResolved: false,
+//         },
+//       });
+
+//       // Only dispatch a new alert tracking record if none are active
+//       if (!existingAlert) {
+//         await tx.alert.create({
+//           data: {
+//             centreId,
+//             type: "LOW_BALANCE",
+//             message: `Centre balance (₹${postDeductionBalance.toLocaleString()}) has fallen below the minimum threshold of ₹${thresholdBalance.toLocaleString()}.`,
+//             isResolved: false,
+//           },
+//         });
+//         console.log(`⚠️ LOW_BALANCE alert generated for Centre: ${centreId}`);
+//       }
+//     }
+
+//     return updatedCentre;
+//   });
+// };
+
+const deductFunds = async ({ centreId, amount, note, accountantId }) => {
+  return prisma.$transaction(async (tx) => {
+    const centre = await tx.centre.findUnique({
+      where: { id: centreId },
+    });
+
+    if (!centre) {
+      throw new Error("Centre not found");
+    }
+
+    const currentBalanceBefore = Number(centre.balance);
+    const deductionAmount = Number(amount);
+
+    /*
+    |--------------------------------------------------------------------------
+    | 1. HARD BLOCK ONLY ON OVERDRAFT (Negative Balance)
+    |--------------------------------------------------------------------------
+    | This allows the balance to drop below the minimum threshold safety zone,
+    | but prevents the center's real wallet balance from going into the negative.
+    */
+    if (currentBalanceBefore < deductionAmount) {
+      throw new Error(`Transaction blocked: Total overdraft. Current wallet balance is ₹${currentBalanceBefore}, cannot deduct ₹${deductionAmount}.`);
+    }
+
+    // 2. Atomically decrement the balance inside the database
+    const updatedCentre = await tx.centre.update({
+      where: { id: centreId },
+      data: {
+        balance: {
+          decrement: deductionAmount,
+        },
+      },
+    });
+
+    // 3. Log the transaction item to the wallet ledger
+    await tx.walletLedger.create({
+      data: {
+        centreId,
+        amount: deductionAmount,
+        type: "DEBIT",
+        note,
+        createdById: accountantId,
+      },
+    });
+
+    // 4. Check if the balance dropped below the minimum threshold (Passive Warning)
+    const postDeductionBalance = Number(updatedCentre.balance);
+    const thresholdBalance = Number(updatedCentre.minimumBalance);
+
+    if (postDeductionBalance < thresholdBalance) {
+      // Check if there's an active, unresolved alert already out there
+      const existingAlert = await tx.alert.findFirst({
+        where: {
           centreId,
-
-          amount,
-
-          type: "DEBIT",
-
-          note,
-
-          createdById:
-            accountantId,
+          type: "LOW_BALANCE",
+          isResolved: false,
         },
       });
 
-      console.log(
-        "Updated Balance:",
-        parseFloat(
-          updatedCentre.balance
-        )
-      );
-
-      console.log(
-        "Minimum Balance:",
-        parseFloat(
-          updatedCentre.minimumBalance
-        )
-      );
-
-      if (
-        parseFloat(
-          updatedCentre.balance
-        ) <=
-        parseFloat(
-          updatedCentre.minimumBalance
-        )
-      ) {
-        const existingAlert =
-          await tx.alert.findFirst({
-            where: {
-              centreId,
-
-              type:
-                "LOW_BALANCE",
-
-              isResolved: false,
-            },
-          });
-
-        if (!existingAlert) {
-          await tx.alert.create({
-            data: {
-              centreId,
-
-              type:
-                "LOW_BALANCE",
-
-              message:
-                "Centre balance below minimum threshold",
-
-              isResolved: false,
-            },
-          });
-
-          console.log(
-            "LOW_BALANCE alert created"
-          );
-        }
+      // Only create the warning record if one isn't already active
+      if (!existingAlert) {
+        await tx.alert.create({
+          data: {
+            centreId,
+            type: "LOW_BALANCE",
+            message: `Warning: Centre balance (₹${postDeductionBalance.toLocaleString()}) has fallen below the minimum threshold of ₹${thresholdBalance.toLocaleString()}.`,
+            isResolved: false,
+          },
+        });
+        console.log(`⚠️ LOW_BALANCE warning generated for Centre: ${centreId}`);
       }
-
-      return updatedCentre;
     }
-  );
+
+    return updatedCentre;
+  });
 };
 
 const getPendingTransactions =
@@ -207,9 +411,153 @@ const getPendingTransactions =
     });
   };
 
-// const AppError = require(
-//   "../utils/AppError"
-// );
+
+
+
+
+// const approveTransaction = async ({
+//   transactionId,
+//   accountantId,
+// }) => {
+//   return prisma.$transaction(async (tx) => {
+//     /*
+//     |--------------------------------------------------------------------------
+//     | Fetch transaction - UPDATED to include bill
+//     |--------------------------------------------------------------------------
+//     */
+//     const transaction =
+//       await tx.transaction.findUnique({
+//         where: {
+//           id: transactionId,
+//         },
+//         include: {
+//           centre: true,
+//           bill: true, // 1. Added to check if a bill exists
+//         },
+//       });
+
+//     /*
+//     |--------------------------------------------------------------------------
+//     | Validations
+//     |--------------------------------------------------------------------------
+//     */
+//     if (!transaction) {
+//       throw new AppError(
+//         "Transaction not found",
+//         404
+//       );
+//     }
+
+//     if (
+//       transaction.status !==
+//       "PENDING_APPROVAL"
+//     ) {
+//       throw new AppError(
+//         "Transaction is not pending approval",
+//         400
+//       );
+//     }
+
+//     /*
+//     |--------------------------------------------------------------------------
+//     | Check centre balance BEFORE approval
+//     |--------------------------------------------------------------------------
+//     */
+//     if (
+//       Number(
+//         transaction.centre.balance
+//       ) < Number(transaction.amount)
+//     ) {
+//       throw new AppError(
+//         "Insufficient centre balance",
+//         400
+//       );
+//     }
+
+//     /*
+//     |--------------------------------------------------------------------------
+//     | Deduct balance
+//     |--------------------------------------------------------------------------
+//     */
+//     const updatedCentre =
+//       await tx.centre.update({
+//         where: {
+//           id: transaction.centre.id,
+//         },
+//         data: {
+//           balance: {
+//             decrement:
+//               transaction.amount,
+//           },
+//         },
+//       });
+
+//     /*
+//     |--------------------------------------------------------------------------
+//     | Approve transaction - UPDATED Status Logic
+//     |--------------------------------------------------------------------------
+//     */
+//     // 2. Conditional status determination
+//     const finalStatus = transaction.bill 
+//       ? "APPROVED_COMPLETED" 
+//       : "APPROVED_PENDING_BILL";
+
+//     const updatedTransaction =
+//       await tx.transaction.update({
+//         where: {
+//           id: transactionId,
+//         },
+//         data: {
+//           status: finalStatus, // Use dynamic status
+
+//           approvedById:
+//             accountantId,
+
+//           approvedAt:
+//             new Date(),
+//         },
+//       });
+
+//     /*
+//     |--------------------------------------------------------------------------
+//     | Create low balance alert
+//     |--------------------------------------------------------------------------
+//     */
+//     if (
+//       Number(updatedCentre.balance) <
+//       Number(
+//         updatedCentre.minimumBalance
+//       )
+//     ) {
+//       const existingAlert =
+//         await tx.alert.findFirst({
+//           where: {
+//             centreId:
+//               updatedCentre.id,
+//             type:
+//               "LOW_BALANCE",
+//             isResolved: false,
+//           },
+//         });
+
+//       if (!existingAlert) {
+//         await tx.alert.create({
+//           data: {
+//             centreId:
+//               updatedCentre.id,
+//             type:
+//               "LOW_BALANCE",
+//             message:
+//               "Centre balance below minimum threshold",
+//             isResolved: false,
+//           },
+//         });
+//       }
+//     }
+
+//     return updatedTransaction;
+//   });
+// };
 
 const approveTransaction = async ({
   transactionId,
@@ -218,18 +566,17 @@ const approveTransaction = async ({
   return prisma.$transaction(async (tx) => {
     /*
     |--------------------------------------------------------------------------
-    | Fetch transaction
+    | Fetch transaction - FIXED (Removed invalid include statement)
     |--------------------------------------------------------------------------
     */
-
     const transaction =
       await tx.transaction.findUnique({
         where: {
           id: transactionId,
         },
-
         include: {
           centre: true,
+          // ❌ REMOVED "bill: true" since billImageUrl is an absolute string value, not a relation
         },
       });
 
@@ -238,7 +585,6 @@ const approveTransaction = async ({
     | Validations
     |--------------------------------------------------------------------------
     */
-
     if (!transaction) {
       throw new AppError(
         "Transaction not found",
@@ -261,7 +607,6 @@ const approveTransaction = async ({
     | Check centre balance BEFORE approval
     |--------------------------------------------------------------------------
     */
-
     if (
       Number(
         transaction.centre.balance
@@ -278,13 +623,11 @@ const approveTransaction = async ({
     | Deduct balance
     |--------------------------------------------------------------------------
     */
-
     const updatedCentre =
       await tx.centre.update({
         where: {
           id: transaction.centre.id,
         },
-
         data: {
           balance: {
             decrement:
@@ -295,19 +638,21 @@ const approveTransaction = async ({
 
     /*
     |--------------------------------------------------------------------------
-    | Approve transaction
+    | Approve transaction - FIXED Status Routing
     |--------------------------------------------------------------------------
     */
+    // Check if billImageUrl contains an existing uploaded string path
+    const finalStatus = (transaction.billImageUrl && transaction.billImageUrl.trim() !== "")
+      ? "APPROVED_COMPLETED" 
+      : "APPROVED_PENDING_BILL";
 
     const updatedTransaction =
       await tx.transaction.update({
         where: {
           id: transactionId,
         },
-
         data: {
-          status:
-            "APPROVED_PENDING_BILL",
+          status: finalStatus, // Applied dynamically
 
           approvedById:
             accountantId,
@@ -322,7 +667,6 @@ const approveTransaction = async ({
     | Create low balance alert
     |--------------------------------------------------------------------------
     */
-
     if (
       Number(updatedCentre.balance) <
       Number(
@@ -334,10 +678,8 @@ const approveTransaction = async ({
           where: {
             centreId:
               updatedCentre.id,
-
             type:
               "LOW_BALANCE",
-
             isResolved: false,
           },
         });
@@ -347,13 +689,10 @@ const approveTransaction = async ({
           data: {
             centreId:
               updatedCentre.id,
-
             type:
               "LOW_BALANCE",
-
             message:
               "Centre balance below minimum threshold",
-
             isResolved: false,
           },
         });
@@ -364,10 +703,6 @@ const approveTransaction = async ({
   });
 };
 
-
-const AppError = require(
-  "../utils/AppError"
-);
 
 const rejectTransaction = async ({
   transactionId,
@@ -592,37 +927,58 @@ const getTransactionHistory =
     };
   };
 
-  const updateCentreConfig =
-  async ({
-    centreId,
-    minimumBalance,
-    transactionLimit,
-  }) => {
-    const centre =
-      await prisma.centre.findUnique({
-        where: {
-          id: centreId,
-        },
-      });
+  
 
-    if (!centre) {
-      throw new Error(
-        "Centre not found"
-      );
-    }
+  const updateCentreConfig = async ({ centreId, minimumBalance, transactionLimit }) => {
+  // 1. Perform the boundary update update inside Prisma
+  const updatedCentre = await prisma.centre.update({
+    where: { id: centreId },
+    data: { 
+      minimumBalance, 
+      transactionLimit 
+    },
+  });
 
-    return prisma.centre.update({
+  // 2. Proactively run an audit check: Is the current balance ALREADY violating the new floor?
+  if (Number(updatedCentre.balance) < Number(updatedCentre.minimumBalance)) {
+    
+    // 3. Avoid duplicate alerts: Check if an unresolved low-balance flag already exists for this centre
+    const existingAlert = await prisma.alert.findFirst({
       where: {
-        id: centreId,
-      },
-
-      data: {
-        minimumBalance,
-
-        transactionLimit,
+        centreId: centreId,
+        type: "LOW_BALANCE", // or whatever string literal matching your system enum
+        isResolved: false,
       },
     });
-  };
+
+    // 4. If no alert row exists yet, write it to the database immediately
+    if (!existingAlert) {
+      await prisma.alert.create({
+        data: {
+          centreId: centreId,
+          type: "LOW_BALANCE",
+          message: `Centre "${updatedCentre.name}" balance (₹${Number(updatedCentre.balance).toLocaleString('en-IN')}) has dropped below the updated minimum boundary ceiling of ₹${Number(updatedCentre.minimumBalance).toLocaleString('en-IN')}.`,
+          isResolved: false,
+        },
+      });
+    }
+  } else {
+    // OPTIONAL: If they adjusted the floor downwards and the center is now safe,
+    // automatically resolve any existing lingering low-balance flags.
+    await prisma.alert.updateMany({
+      where: {
+        centreId: centreId,
+        type: "LOW_BALANCE",
+        isResolved: false,
+      },
+      data: {
+        isResolved: true,
+      },
+    });
+  }
+
+  return updatedCentre;
+};
 
 module.exports = {
   addFunds,

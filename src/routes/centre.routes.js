@@ -61,6 +61,18 @@ router.get(
   centreController.getTransactions
 );
 
+router.get("/profile", centreController.getCentreProfile);
 
+// Fetch the list of items to show in the UI
+router.get(
+  '/transactions/pending-actions', 
+  centreController.getPendingActions
+);
+
+router.post(
+  '/transactions/:transactionId/upload-bill-complete',
+  upload.single('bill'),
+  centreController.completeTransaction
+);
 
 module.exports = router;
