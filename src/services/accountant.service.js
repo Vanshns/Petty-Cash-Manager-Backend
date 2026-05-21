@@ -6,73 +6,6 @@ const AppError = require(
   "../utils/AppError"
 );
 
-// const addFunds = async ({
-//   centreId,
-//   amount,
-//   note,
-//   accountantId,
-// }) => {
-//   return prisma.$transaction(async (tx) => {
-//     const centre = await tx.centre.findUnique({
-//       where: {
-//         id: centreId,
-//       },
-//     });
-
-//     if (!centre) {
-//       throw new Error("Centre not found");
-//     }
-
-//     const updatedCentre =
-//       await tx.centre.update({
-//         where: {
-//           id: centreId,
-//         },
-
-//         data: {
-//           balance: {
-//             increment: amount,
-//           },
-//         },
-//       });
-
-//     await tx.walletLedger.create({
-//       data: {
-//         centreId,
-
-//         amount,
-
-//         type: "CREDIT",
-
-//         note,
-
-//         createdById: accountantId,
-//       },
-//     });
-
-//     if (
-//       Number(updatedCentre.balance) >=
-//       Number(updatedCentre.minimumBalance)
-//     ) {
-//       await tx.alert.updateMany({
-//         where: {
-//           centreId,
-
-//           type: "LOW_BALANCE",
-
-//           isResolved: false,
-//         },
-
-//         data: {
-//           isResolved: true,
-//         },
-//       });
-//     }
-
-//     return updatedCentre;
-//   });
-// };
-
 const addFunds = async ({ centreId, amount, note, accountantId }) => {
   return prisma.$transaction(async (tx) => {
     const centre = await tx.centre.findUnique({
@@ -127,194 +60,6 @@ const addFunds = async ({ centreId, amount, note, accountantId }) => {
   });
 };
 
-// const deductFunds = async ({
-//   centreId,
-//   amount,
-//   note,
-//   accountantId,
-// }) => {
-//   return prisma.$transaction(
-//     async (tx) => {
-//       const centre =
-//         await tx.centre.findUnique({
-//           where: {
-//             id: centreId,
-//           },
-//         });
-
-//       if (!centre) {
-//         throw new Error(
-//           "Centre not found"
-//         );
-//       }
-
-//       if (
-//         parseFloat(
-//           centre.balance
-//         ) < amount
-//       ) {
-//         throw new Error(
-//           "Insufficient centre balance"
-//         );
-//       }
-
-//       const updatedCentre =
-//         await tx.centre.update({
-//           where: {
-//             id: centreId,
-//           },
-
-//           data: {
-//             balance: {
-//               decrement:
-//                 amount,
-//             },
-//           },
-//         });
-
-//       await tx.walletLedger.create({
-//         data: {
-//           centreId,
-
-//           amount,
-
-//           type: "DEBIT",
-
-//           note,
-
-//           createdById:
-//             accountantId,
-//         },
-//       });
-
-//       console.log(
-//         "Updated Balance:",
-//         parseFloat(
-//           updatedCentre.balance
-//         )
-//       );
-
-//       console.log(
-//         "Minimum Balance:",
-//         parseFloat(
-//           updatedCentre.minimumBalance
-//         )
-//       );
-
-//       if (
-//         parseFloat(
-//           updatedCentre.balance
-//         ) <=
-//         parseFloat(
-//           updatedCentre.minimumBalance
-//         )
-//       ) {
-//         const existingAlert =
-//           await tx.alert.findFirst({
-//             where: {
-//               centreId,
-
-//               type:
-//                 "LOW_BALANCE",
-
-//               isResolved: false,
-//             },
-//           });
-
-//         if (!existingAlert) {
-//           await tx.alert.create({
-//             data: {
-//               centreId,
-
-//               type:
-//                 "LOW_BALANCE",
-
-//               message:
-//                 "Centre balance below minimum threshold",
-
-//               isResolved: false,
-//             },
-//           });
-
-//           console.log(
-//             "LOW_BALANCE alert created"
-//           );
-//         }
-//       }
-
-//       return updatedCentre;
-//     }
-//   );
-// };
-
-// const deductFunds = async ({ centreId, amount, note, accountantId }) => {
-//   return prisma.$transaction(async (tx) => {
-//     const centre = await tx.centre.findUnique({
-//       where: { id: centreId },
-//     });
-
-//     if (!centre) {
-//       throw new Error("Centre not found");
-//     }
-
-//     // 1. Safety check using clean primitive parsing
-//     const currentBalanceBefore = Number(centre.balance);
-//     if (currentBalanceBefore < Number(amount)) {
-//       throw new Error("Insufficient centre balance");
-//     }
-
-//     // 2. Atomically decrement the balance inside the database
-//     const updatedCentre = await tx.centre.update({
-//       where: { id: centreId },
-//       data: {
-//         balance: {
-//           decrement: amount,
-//         },
-//       },
-//     });
-
-//     // 3. Log the transaction item to the wallet ledger
-//     await tx.walletLedger.create({
-//       data: {
-//         centreId,
-//         amount,
-//         type: "DEBIT",
-//         note,
-//         createdById: accountantId,
-//       },
-//     });
-
-//     // 4. Check if the balance dropped below the minimum threshold
-//     const postDeductionBalance = Number(updatedCentre.balance);
-//     const thresholdBalance = Number(updatedCentre.minimumBalance);
-
-//     if (postDeductionBalance < thresholdBalance) {
-//       // Check if there's an active, unresolved alert already out there
-//       const existingAlert = await tx.alert.findFirst({
-//         where: {
-//           centreId,
-//           type: "LOW_BALANCE",
-//           isResolved: false,
-//         },
-//       });
-
-//       // Only dispatch a new alert tracking record if none are active
-//       if (!existingAlert) {
-//         await tx.alert.create({
-//           data: {
-//             centreId,
-//             type: "LOW_BALANCE",
-//             message: `Centre balance (₹${postDeductionBalance.toLocaleString()}) has fallen below the minimum threshold of ₹${thresholdBalance.toLocaleString()}.`,
-//             isResolved: false,
-//           },
-//         });
-//         console.log(`⚠️ LOW_BALANCE alert generated for Centre: ${centreId}`);
-//       }
-//     }
-
-//     return updatedCentre;
-//   });
-// };
 
 const deductFunds = async ({ centreId, amount, note, accountantId }) => {
   return prisma.$transaction(async (tx) => {
@@ -393,171 +138,53 @@ const deductFunds = async ({ centreId, amount, note, accountantId }) => {
   });
 };
 
+// const getPendingTransactions =
+//   async () => {
+//     return prisma.transaction.findMany({
+//       where: {
+//         status: "PENDING_APPROVAL",
+//       },
+
+//       include: {
+//         centre: true,
+//         category: true,
+//       },
+
+//       orderBy: {
+//         createdAt: "desc",
+//       },
+//     });
+//   };
+
 const getPendingTransactions =
   async () => {
-    return prisma.transaction.findMany({
-      where: {
-        status: "PENDING_APPROVAL",
-      },
 
-      include: {
-        centre: true,
-        category: true,
-      },
+    const transactions =
+      await prisma.transaction.findMany({
+        where: {
+          status: "PENDING_APPROVAL",
+        },
 
-      orderBy: {
-        createdAt: "desc",
-      },
-    });
+        include: {
+          centre: true,
+          category: true,
+        },
+
+        orderBy: {
+          createdAt: "desc",
+        },
+      });
+
+    return transactions.map((transaction) => ({
+      ...transaction,
+
+      billImageUrl:
+        transaction.billImageUrl
+          ? `${process.env.FILE_BASE_URL}/${transaction.billImageUrl}`
+          : null,
+    }));
   };
 
-
-
-
-
-// const approveTransaction = async ({
-//   transactionId,
-//   accountantId,
-// }) => {
-//   return prisma.$transaction(async (tx) => {
-//     /*
-//     |--------------------------------------------------------------------------
-//     | Fetch transaction - UPDATED to include bill
-//     |--------------------------------------------------------------------------
-//     */
-//     const transaction =
-//       await tx.transaction.findUnique({
-//         where: {
-//           id: transactionId,
-//         },
-//         include: {
-//           centre: true,
-//           bill: true, // 1. Added to check if a bill exists
-//         },
-//       });
-
-//     /*
-//     |--------------------------------------------------------------------------
-//     | Validations
-//     |--------------------------------------------------------------------------
-//     */
-//     if (!transaction) {
-//       throw new AppError(
-//         "Transaction not found",
-//         404
-//       );
-//     }
-
-//     if (
-//       transaction.status !==
-//       "PENDING_APPROVAL"
-//     ) {
-//       throw new AppError(
-//         "Transaction is not pending approval",
-//         400
-//       );
-//     }
-
-//     /*
-//     |--------------------------------------------------------------------------
-//     | Check centre balance BEFORE approval
-//     |--------------------------------------------------------------------------
-//     */
-//     if (
-//       Number(
-//         transaction.centre.balance
-//       ) < Number(transaction.amount)
-//     ) {
-//       throw new AppError(
-//         "Insufficient centre balance",
-//         400
-//       );
-//     }
-
-//     /*
-//     |--------------------------------------------------------------------------
-//     | Deduct balance
-//     |--------------------------------------------------------------------------
-//     */
-//     const updatedCentre =
-//       await tx.centre.update({
-//         where: {
-//           id: transaction.centre.id,
-//         },
-//         data: {
-//           balance: {
-//             decrement:
-//               transaction.amount,
-//           },
-//         },
-//       });
-
-//     /*
-//     |--------------------------------------------------------------------------
-//     | Approve transaction - UPDATED Status Logic
-//     |--------------------------------------------------------------------------
-//     */
-//     // 2. Conditional status determination
-//     const finalStatus = transaction.bill 
-//       ? "APPROVED_COMPLETED" 
-//       : "APPROVED_PENDING_BILL";
-
-//     const updatedTransaction =
-//       await tx.transaction.update({
-//         where: {
-//           id: transactionId,
-//         },
-//         data: {
-//           status: finalStatus, // Use dynamic status
-
-//           approvedById:
-//             accountantId,
-
-//           approvedAt:
-//             new Date(),
-//         },
-//       });
-
-//     /*
-//     |--------------------------------------------------------------------------
-//     | Create low balance alert
-//     |--------------------------------------------------------------------------
-//     */
-//     if (
-//       Number(updatedCentre.balance) <
-//       Number(
-//         updatedCentre.minimumBalance
-//       )
-//     ) {
-//       const existingAlert =
-//         await tx.alert.findFirst({
-//           where: {
-//             centreId:
-//               updatedCentre.id,
-//             type:
-//               "LOW_BALANCE",
-//             isResolved: false,
-//           },
-//         });
-
-//       if (!existingAlert) {
-//         await tx.alert.create({
-//           data: {
-//             centreId:
-//               updatedCentre.id,
-//             type:
-//               "LOW_BALANCE",
-//             message:
-//               "Centre balance below minimum threshold",
-//             isResolved: false,
-//           },
-//         });
-//       }
-//     }
-
-//     return updatedTransaction;
-//   });
-// };
 
 const approveTransaction = async ({
   transactionId,
@@ -825,23 +452,51 @@ const getTransactionHistory =
 
     const skip = (page - 1) * limit;
 
-    return prisma.transaction.findMany({
-      where,
+    // return prisma.transaction.findMany({
+    //   where,
 
-      include: {
-        centre: true,
-        category: true,
-        approvedBy: true,
-      },
+    //   include: {
+    //     centre: true,
+    //     category: true,
+    //     approvedBy: true,
+    //   },
 
-      orderBy: {
-        createdAt: "desc",
-      },
+    //   orderBy: {
+    //     createdAt: "desc",
+    //   },
 
-      skip,
+    //   skip,
 
-      take: limit,
-    });
+    //   take: limit,
+    // });
+
+    const transactions =
+      await prisma.transaction.findMany({
+        where,
+
+        include: {
+          centre: true,
+          category: true,
+          approvedBy: true,
+        },
+
+        orderBy: {
+          createdAt: "desc",
+        },
+
+        skip,
+
+        take: limit,
+      });
+
+    return transactions.map((transaction) => ({
+      ...transaction,
+
+      billImageUrl:
+        transaction.billImageUrl
+          ? `${process.env.FILE_BASE_URL}/${transaction.billImageUrl}`
+          : null,
+    }));
   };
 
   const exportTransactionsToCSV =
