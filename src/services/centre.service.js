@@ -220,29 +220,100 @@ const getPendingActions = async (accountId) => {
   }));
 };
 
-const uploadBillAndComplete = async ({ transactionId, accountId, file }) => {
-  if (!file) throw new Error("File is required");
+// const uploadBillAndComplete = async ({ transactionId, accountId, file }) => {
+//   if (!file) throw new Error("File is required");
 
-  const transaction = await prisma.transaction.findUnique({
-    where: { id: transactionId },
-    include: { centre: true },
-  });
+//   const transaction = await prisma.transaction.findUnique({
+//     where: { id: transactionId },
+//     include: { centre: true },
+//   });
 
-  if (!transaction) throw new Error("Transaction not found");
-  if (transaction.centre.accountId !== accountId) throw new Error("Unauthorized");
+//   if (!transaction) throw new Error("Transaction not found");
+//   if (transaction.centre.accountId !== accountId) throw new Error("Unauthorized");
 
-  const allowedStatuses = ["PENDING_APPROVAL", "APPROVED_PENDING_BILL"];
-  if (!allowedStatuses.includes(transaction.status)) {
-    throw new Error("Action not allowed for this transaction status");
+//   const allowedStatuses = ["PENDING_APPROVAL", "APPROVED_PENDING_BILL"];
+//   if (!allowedStatuses.includes(transaction.status)) {
+//     throw new Error("Action not allowed for this transaction status");
+//   }
+
+//   const imageUrl = await uploadFile(file);
+//   return prisma.transaction.update({
+//     where: { id: transaction.id },
+//     data: {
+//       // billImageUrl: imageUrl,
+//       billImageUrl: file.generatedName, // Changing from minio to S3 bucket
+//       status: "APPROVED_COMPLETED",
+//       updatedAt: new Date(),
+//     },
+//   });
+// };
+
+const uploadBillAndComplete = async ({
+  transactionId,
+  accountId,
+  file,
+}) => {
+  if (!file)
+    throw new Error("File is required");
+
+  const transaction =
+    await prisma.transaction.findUnique({
+      where: { id: transactionId },
+
+      include: {
+        centre: true,
+      },
+    });
+
+  if (!transaction)
+    throw new Error(
+      "Transaction not found",
+    );
+
+  if (
+    transaction.centre.accountId !==
+    accountId
+  ) {
+    throw new Error("Unauthorized");
   }
 
-  const imageUrl = await uploadFile(file);
+  const allowedStatuses = [
+    "PENDING_APPROVAL",
+    "APPROVED_PENDING_BILL",
+  ];
+
+  if (
+    !allowedStatuses.includes(
+      transaction.status,
+    )
+  ) {
+    throw new Error(
+      "Action not allowed for this transaction status",
+    );
+  }
+
+  /*
+  |--------------------------------------------------------------------------
+  | multer-s3 already uploaded the file
+  |--------------------------------------------------------------------------
+  |
+  | file.generatedName contains:
+  | abc123.jpg
+  |
+  */
+
   return prisma.transaction.update({
-    where: { id: transaction.id },
+    where: {
+      id: transaction.id,
+    },
+
     data: {
-      // billImageUrl: imageUrl,
-      billImageUrl: file.generatedName, // Changing from minio to S3 bucket
-      status: "APPROVED_COMPLETED",
+      billImageUrl:
+        file.generatedName,
+
+      status:
+        "APPROVED_COMPLETED",
+
       updatedAt: new Date(),
     },
   });
