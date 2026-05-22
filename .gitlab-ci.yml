@@ -1,0 +1,8 @@
+job1:
+  stage: build
+  script:
+    - sh /home/urbanlocal/deploymentscripts/expense_backend.sh $PWD expense_backend
+  only:
+    - expenses_prod
+  tags:
+    - sharad2
