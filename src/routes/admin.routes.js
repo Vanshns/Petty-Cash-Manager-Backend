@@ -136,4 +136,14 @@ router.patch(
   adminController.archiveCategory
 );
 
+/*
+|--------------------------------------------------------------------------
+| Get Wallet Ledger
+|--------------------------------------------------------------------------
+*/
+router.get(
+  '/wallet-ledgers',  
+  adminController.getWalletLedgers
+);
+
 module.exports = router;

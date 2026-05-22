@@ -279,6 +279,73 @@ const getAccounts =
     });
   };
 
+const getWalletLedgerAuditLogs = async ({ centreId, page = 1, limit = 20 }) => {
+  try {
+    const currentPage = Math.max(1, parseInt(page, 10));
+    const itemsPerPage = Math.max(1, parseInt(limit, 10));
+    const skip = (currentPage - 1) * itemsPerPage;
+
+    const queryConditions = {};
+    if (centreId && centreId.trim() !== '') {
+      queryConditions.centreId = centreId;
+    }
+
+    const [ledgers, totalRecords] = await prisma.$transaction([
+      prisma.walletLedger.findMany({
+        where: queryConditions,
+        orderBy: {
+          createdAt: 'desc',
+        },
+        skip,
+        take: itemsPerPage,
+        include: {
+          centre: { 
+            select: {
+              id: true,
+              name: true,
+            },
+          },
+          createdBy: { 
+            select: {
+              id: true,
+              username: true, // 🌟 FIXED: Changed from 'name' to 'username' to match your schema's fields
+              role: true,
+            },
+          },
+        },
+      }),
+      prisma.walletLedger.count({
+        where: queryConditions,
+      }),
+    ]);
+
+    return {
+      success: true,
+      meta: {
+        totalRecords,
+        currentPage,
+        totalPages: Math.ceil(totalRecords / itemsPerPage),
+        hasMore: currentPage * itemsPerPage < totalRecords,
+      },
+      data: ledgers.map(log => ({
+        ...log,
+        amount: log.amount ? parseFloat(log.amount.toString()) : 0,
+        // Map username to name here so your frontend properties don't break
+        account: log.createdBy ? {
+          id: log.createdBy.id,
+          name: log.createdBy.username, // 🌟 Safely aliases 'username' as 'name' for frontend consumption
+          role: log.createdBy.role,
+        } : null,
+      })),
+    };
+  } catch (error) {
+    console.error('CRITICAL BACKEND ERROR IN getWalletLedgerAuditLogs SERVICE:', error);
+    throw error;
+  }
+};
+
+
+
 module.exports = {
   createAdmin,
 
@@ -297,4 +364,6 @@ module.exports = {
   getCategories,
 
   archiveCategory,
+
+  getWalletLedgerAuditLogs,
 };

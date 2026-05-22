@@ -219,6 +219,27 @@ const getCategories =
     }
   );
 
+const getWalletLedgers = async (req, res) => {
+  try {
+    const { centreId, page, limit } = req.query;
+
+    // Call our newly constructed transactional data query service
+    const auditLogs = await adminService.getWalletLedgerAuditLogs({
+      centreId: centreId || undefined,
+      page: page ? parseInt(page, 10) : 1,
+      limit: limit ? parseInt(limit, 10) : 20,
+    });
+
+    return res.status(200).json(auditLogs);
+  } catch (error) {
+    console.error('CONTROLLER ERROR IN getWalletLedgers:', error);
+    return res.status(500).json({
+      success: false,
+      message: error.message || 'Internal server error while building audit matrix logs.',
+    });
+  }
+};
+
 module.exports = {
   createAdmin,
 
@@ -237,4 +258,6 @@ module.exports = {
   getCategories,
 
   archiveCategory,
+
+  getWalletLedgers,
 };

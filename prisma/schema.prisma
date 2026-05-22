@@ -7,13 +7,118 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-enum Role {
-  ADMIN
-  ACCOUNTANT
-  CENTRE
+model account {
+  id           String         @id
+  username     String         @unique(map: "Account_username_key")
+  passwordHash String
+  role         account_role
+  createdAt    DateTime       @default(now())
+  updatedAt    DateTime
+  auditlog     auditlog[]
+  centre       centre?
+  refreshtoken refreshtoken[]
+  transaction  transaction[]
+  walletledger walletledger[]
 }
 
-enum TransactionStatus {
+model alert {
+  id         String     @id
+  centreId   String
+  message    String
+  isResolved Boolean    @default(false)
+  createdAt  DateTime   @default(now())
+  type       alert_type
+  centre     centre     @relation(fields: [centreId], references: [id], map: "Alert_centreId_fkey")
+
+  @@index([centreId], map: "Alert_centreId_fkey")
+}
+
+model auditlog {
+  id         String   @id
+  accountId  String
+  action     String
+  entityType String
+  entityId   String
+  metadata   Json?
+  createdAt  DateTime @default(now())
+  account    account  @relation(fields: [accountId], references: [id], map: "AuditLog_accountId_fkey")
+
+  @@index([accountId], map: "AuditLog_accountId_fkey")
+}
+
+model category {
+  id          String        @id
+  name        String        @unique(map: "Category_name_key")
+  createdAt   DateTime      @default(now())
+  isActive    Boolean       @default(true)
+  updatedAt   DateTime      @default(now())
+  transaction transaction[]
+}
+
+model centre {
+  id               String         @id
+  name             String         @unique(map: "Centre_name_key")
+  balance          Decimal        @db.Decimal(12, 2)
+  minimumBalance   Decimal        @db.Decimal(12, 2)
+  transactionLimit Decimal        @db.Decimal(12, 2)
+  accountId        String         @unique(map: "Centre_accountId_key")
+  createdAt        DateTime       @default(now())
+  updatedAt        DateTime
+  alert            alert[]
+  account          account        @relation(fields: [accountId], references: [id], map: "Centre_accountId_fkey")
+  transaction      transaction[]
+  walletledger     walletledger[]
+}
+
+model refreshtoken {
+  id        String   @id
+  token     String   @db.Text
+  accountId String
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+  account   account  @relation(fields: [accountId], references: [id], map: "RefreshToken_accountId_fkey")
+
+  @@index([accountId], map: "RefreshToken_accountId_fkey")
+}
+
+model transaction {
+  id              String             @id
+  amount          Decimal            @db.Decimal(12, 2)
+  description     String?
+  status          transaction_status
+  billImageUrl    String?
+  categoryId      String
+  centreId        String
+  approvedById    String?
+  approvedAt      DateTime?
+  createdAt       DateTime           @default(now())
+  updatedAt       DateTime
+  rejectionReason String?
+  account         account?           @relation(fields: [approvedById], references: [id], map: "Transaction_approvedById_fkey")
+  category        category           @relation(fields: [categoryId], references: [id], map: "Transaction_categoryId_fkey")
+  centre          centre             @relation(fields: [centreId], references: [id], map: "Transaction_centreId_fkey")
+
+  @@index([approvedById], map: "Transaction_approvedById_fkey")
+  @@index([categoryId], map: "Transaction_categoryId_fkey")
+  @@index([centreId], map: "Transaction_centreId_fkey")
+}
+
+model walletledger {
+  id          String            @id
+  centreId    String
+  amount      Decimal           @db.Decimal(12, 2)
+  type        walletledger_type
+  note        String?
+  createdById String
+  createdAt   DateTime          @default(now())
+  centre      centre            @relation(fields: [centreId], references: [id], map: "WalletLedger_centreId_fkey")
+  account     account           @relation(fields: [createdById], references: [id], map: "WalletLedger_createdById_fkey")
+
+  @@index([centreId], map: "WalletLedger_centreId_fkey")
+  @@index([createdById], map: "WalletLedger_createdById_fkey")
+}
+
+enum transaction_status {
   STANDARD
   PENDING_APPROVAL
   APPROVED_PENDING_BILL
@@ -21,175 +126,17 @@ enum TransactionStatus {
   REJECTED
 }
 
-enum WalletLedgerType {
+enum account_role {
+  ADMIN
+  ACCOUNTANT
+  CENTRE
+}
+
+enum walletledger_type {
   CREDIT
   DEBIT
 }
 
-enum AlertType {
+enum alert_type {
   LOW_BALANCE
-}
-
-model Account {
-  id           String @id @default(uuid())
-  username     String @unique
-  passwordHash String
-  role         Role
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  centre Centre?
-
-  refreshTokens RefreshToken[]
-
-  auditLogs AuditLog[]
-
-  approvedTransactions Transaction[] @relation("ApprovedBy")
-
-  walletEntries WalletLedger[] @relation("WalletCreatedBy")
-}
-
-model Centre {
-  id   String @id @default(uuid())
-  name String @unique
-
-  balance          Decimal @db.Decimal(12, 2)
-  minimumBalance   Decimal @db.Decimal(12, 2)
-  transactionLimit Decimal @db.Decimal(12, 2)
-
-  accountId String  @unique
-  account   Account @relation(fields: [accountId], references: [id])
-
-  transactions Transaction[]
-  walletLedger WalletLedger[]
-  alerts       Alert[]
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-}
-
-model Category {
-  id   String @id @default(uuid())
-
-  name String @unique
-
-  isActive Boolean @default(true)
-
-  transactions Transaction[]
-
-  createdAt DateTime @default(now())
-
-  updatedAt DateTime @updatedAt @default(now())
-}
-
-model Transaction {
-  id String @id @default(uuid())
-
-  amount Decimal @db.Decimal(12, 2)
-
-  description String?
-
-  status TransactionStatus
-
-  billImageUrl String?
-
-  /*
-  |--------------------------------------------------------------------------
-  | Relations
-  |--------------------------------------------------------------------------
-  */
-
-  categoryId String
-  category   Category @relation(fields: [categoryId], references: [id])
-
-  centreId String
-  centre   Centre @relation(fields: [centreId], references: [id])
-
-  /*
-  |--------------------------------------------------------------------------
-  | Approval Workflow
-  |--------------------------------------------------------------------------
-  */
-
-  approvedById String?
-
-  approvedBy Account? @relation("ApprovedBy", fields: [approvedById], references: [id])
-
-  approvedAt DateTime?
-
-  rejectionReason String?
-
-  /*
-  |--------------------------------------------------------------------------
-  | Timestamps
-  |--------------------------------------------------------------------------
-  */
-
-  createdAt DateTime @default(now())
-
-  updatedAt DateTime @updatedAt
-}
-
-model WalletLedger {
-  id String @id @default(uuid())
-
-  centreId String
-  centre   Centre @relation(fields: [centreId], references: [id])
-
-  amount Decimal @db.Decimal(12, 2)
-
-  type WalletLedgerType
-
-  note String?
-
-  createdById String
-  createdBy   Account @relation("WalletCreatedBy", fields: [createdById], references: [id])
-
-  createdAt DateTime @default(now())
-}
-
-model Alert {
-  id            String      @id @default(uuid())
-
-  centreId      String
-  centre        Centre      @relation(fields: [centreId], references: [id])
-
-  type          AlertType
-
-  message       String
-
-  isResolved    Boolean     @default(false)
-
-  createdAt     DateTime    @default(now())
-}
-
-model RefreshToken {
-  id            String   @id @default(uuid())
-
-  token         String   @db.Text
-
-  accountId     String
-  account       Account  @relation(fields: [accountId], references: [id])
-
-  expiresAt     DateTime
-
-  createdAt     DateTime @default(now())
-}
-
-model AuditLog {
-  id String @id @default(uuid())
-
-  accountId String
-  account   Account @relation(fields: [accountId], references: [id])
-
-  action String
-
-  entityType String
-
-  entityId String
-
-  metadata Json?
-
-  createdAt DateTime @default(now())
 }
