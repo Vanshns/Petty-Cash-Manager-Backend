@@ -178,10 +178,17 @@ const getPendingTransactions =
     return transactions.map((transaction) => ({
       ...transaction,
 
+      // billImageUrl:
+      //   transaction.billImageUrl
+      //     ? `${process.env.FILE_BASE_URL}/${transaction.billImageUrl}`
+      //     : null,
+
       billImageUrl:
-        transaction.billImageUrl
-          ? `${process.env.FILE_BASE_URL}/${transaction.billImageUrl}`
-          : null,
+          transaction.billImageUrl
+            ? transaction.billImageUrl.startsWith("http")
+              ? transaction.billImageUrl
+              : `${process.env.FILE_BASE_URL}/${transaction.billImageUrl}`
+            : null,
     }));
   };
 
