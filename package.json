@@ -25,6 +25,7 @@
     "cors": "^2.8.6",
     "date-fns": "^4.1.0",
     "dotenv": "^17.4.2",
+    "exceljs": "^4.4.0",
     "express": "^5.2.1",
     "fast-csv": "^5.0.7",
     "json2csv": "^6.0.0-alpha.2",

@@ -140,15 +140,43 @@ const getTransactionHistory =
   "../utils/csv"
 );
 
+// const exportTransactions =
+//   asyncHandler(async (req, res) => {
+//     const transactions =
+//       await accountantService.exportTransactionsToCSV(
+//         req.validatedQuery
+//       );
+
+//     const csv =
+//       generateCSV(transactions);
+
+//     const startDate =
+//       req.validatedQuery.startDate ||
+//       "all";
+
+//     const endDate =
+//       req.validatedQuery.endDate ||
+//       "all";
+
+//     const fileName =
+//       `transactions_${startDate}_${endDate}.csv`;
+
+//     res.header(
+//       "Content-Type",
+//       "text/csv"
+//     );
+
+//     res.attachment(fileName);
+
+//     return res.send(csv);
+//   });
+
 const exportTransactions =
   asyncHandler(async (req, res) => {
-    const transactions =
-      await accountantService.exportTransactionsToCSV(
+    const workbook =
+      await accountantService.exportTransactionsWorkbook(
         req.validatedQuery
       );
-
-    const csv =
-      generateCSV(transactions);
 
     const startDate =
       req.validatedQuery.startDate ||
@@ -159,16 +187,21 @@ const exportTransactions =
       "all";
 
     const fileName =
-      `transactions_${startDate}_${endDate}.csv`;
+      `financial_report_${startDate}_${endDate}.xlsx`;
 
-    res.header(
+    res.setHeader(
       "Content-Type",
-      "text/csv"
+      "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
     );
 
-    res.attachment(fileName);
+    res.setHeader(
+      "Content-Disposition",
+      `attachment; filename=${fileName}`
+    );
 
-    return res.send(csv);
+    await workbook.xlsx.write(res);
+
+    res.end();
   });
 
   const getDashboardMetrics =

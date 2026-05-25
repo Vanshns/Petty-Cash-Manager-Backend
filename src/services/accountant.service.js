@@ -506,46 +506,343 @@ const getTransactionHistory =
     }));
   };
 
-  const exportTransactionsToCSV =
+  const getWalletLedgerHistory =
+  async ({
+    startDate,
+    endDate,
+    centreId,
+  }) => {
+    const where = {};
+
+    if (centreId) {
+      where.centreId = centreId;
+    }
+
+    if (startDate || endDate) {
+      where.createdAt = {};
+    }
+
+    if (startDate) {
+      where.createdAt.gte =
+        new Date(startDate);
+    }
+
+    if (endDate) {
+      where.createdAt.lte =
+        new Date(endDate);
+    }
+    console.log(Object.keys(prisma));
+    return prisma.walletLedger.findMany({
+      where,
+
+      include: {
+        centre: true,
+        createdBy: true,
+      },
+
+      orderBy: {
+        createdAt: "desc",
+      },
+    });
+  };
+
+  const ExcelJS = require("exceljs");
+
+  // const exportTransactionsToCSV =
+  // async (filters = {}) => {
+  //   const transactions =
+  //     await getTransactionHistory(
+  //       filters
+  //     );
+
+  //   return transactions.map(
+  //     (t) => ({
+  //       id: t.id,
+
+  //       centre:
+  //         t.centre?.name || "",
+
+  //       amount:
+  //         Number(
+  //           t.amount
+  //         ).toFixed(2),
+
+  //       status: t.status,
+
+  //       category:
+  //         t.category?.name ||
+  //         "",
+
+  //       approvedBy:
+  //         t.approvedBy
+  //           ?.username || "",
+
+  //       createdAt:
+  //         t.createdAt,
+
+  //       approvedAt:
+  //         t.approvedAt ||
+  //         "",
+
+  //       description:
+  //         t.description || "",
+  //     })
+  //   );
+  // };
+
+
+const exportTransactionsWorkbook =
   async (filters = {}) => {
+    // =========================================================================
+    // FETCH DATASETS
+    // =========================================================================
+
     const transactions =
-      await getTransactionHistory(
-        filters
+      await getTransactionHistory({
+        ...filters,
+
+        // Export should fetch ALL rows
+        page: 1,
+
+        limit: 100000,
+      });
+
+    const walletLedger =
+      await getWalletLedgerHistory(
+        filters,
       );
 
-    return transactions.map(
-      (t) => ({
+    // =========================================================================
+    // CREATE WORKBOOK
+    // =========================================================================
+
+    const workbook =
+      new ExcelJS.Workbook();
+
+    workbook.creator =
+      "Pravaayu Petty Cash Manager";
+
+    workbook.created =
+      new Date();
+
+    // =========================================================================
+    // SHEET 1 — TRANSACTIONS
+    // =========================================================================
+
+    const transactionSheet =
+      workbook.addWorksheet(
+        "Transactions",
+      );
+
+    transactionSheet.columns = [
+      {
+        header: "Transaction ID",
+        key: "id",
+        width: 28,
+      },
+
+      {
+        header: "Centre",
+        key: "centre",
+        width: 24,
+      },
+
+      {
+        header: "Amount",
+        key: "amount",
+        width: 16,
+      },
+
+      {
+        header: "Status",
+        key: "status",
+        width: 28,
+      },
+
+      {
+        header: "Category",
+        key: "category",
+        width: 20,
+      },
+
+      {
+        header: "Approved By",
+        key: "approvedBy",
+        width: 22,
+      },
+
+      {
+        header: "Created At",
+        key: "createdAt",
+        width: 24,
+      },
+
+      {
+        header: "Approved At",
+        key: "approvedAt",
+        width: 24,
+      },
+
+      {
+        header: "Description",
+        key: "description",
+        width: 40,
+      },
+    ];
+
+    // =========================================================================
+    // HEADER STYLING
+    // =========================================================================
+
+    transactionSheet.getRow(1).font = {
+      bold: true,
+    };
+
+    transactions.forEach((t) => {
+      transactionSheet.addRow({
         id: t.id,
 
         centre:
           t.centre?.name || "",
 
-        amount:
-          Number(
-            t.amount
-          ).toFixed(2),
+        amount: Number(
+          t.amount,
+        ).toFixed(2),
 
         status: t.status,
 
         category:
-          t.category?.name ||
-          "",
+          t.category?.name || "",
 
         approvedBy:
           t.approvedBy
             ?.username || "",
 
         createdAt:
-          t.createdAt,
+          t.createdAt
+            ? new Date(
+                t.createdAt,
+              ).toLocaleString(
+                "en-IN",
+              )
+            : "",
 
         approvedAt:
-          t.approvedAt ||
-          "",
+          t.approvedAt
+            ? new Date(
+                t.approvedAt,
+              ).toLocaleString(
+                "en-IN",
+              )
+            : "",
 
         description:
           t.description || "",
-      })
-    );
+      });
+    });
+
+    // =========================================================================
+    // SHEET 2 — WALLET LEDGER
+    // =========================================================================
+
+    const ledgerSheet =
+      workbook.addWorksheet(
+        "Wallet Ledger",
+      );
+
+    ledgerSheet.columns = [
+      {
+        header: "Date",
+        key: "createdAt",
+        width: 24,
+      },
+
+      {
+        header: "Centre",
+        key: "centre",
+        width: 24,
+      },
+
+      {
+        header: "Type",
+        key: "type",
+        width: 14,
+      },
+
+      {
+        header: "Amount",
+        key: "amount",
+        width: 16,
+      },
+
+      {
+        header: "Note",
+        key: "note",
+        width: 40,
+      },
+
+      {
+        header: "Accountant",
+        key: "accountant",
+        width: 24,
+      },
+    ];
+
+    // =========================================================================
+    // HEADER STYLING
+    // =========================================================================
+
+    ledgerSheet.getRow(1).font = {
+      bold: true,
+    };
+
+    walletLedger.forEach((l) => {
+      ledgerSheet.addRow({
+        createdAt:
+          l.createdAt
+            ? new Date(
+                l.createdAt,
+              ).toLocaleString(
+                "en-IN",
+              )
+            : "",
+
+        centre:
+          l.centre?.name || "",
+
+        type: l.type,
+
+        amount: Number(
+          l.amount,
+        ).toFixed(2),
+
+        note: l.note || "",
+
+        accountant:
+          l.createdBy
+            ?.username || "",
+      });
+    });
+
+    // =========================================================================
+    // FREEZE HEADER ROWS
+    // =========================================================================
+
+    transactionSheet.views = [
+      {
+        state: "frozen",
+        ySplit: 1,
+      },
+    ];
+
+    ledgerSheet.views = [
+      {
+        state: "frozen",
+        ySplit: 1,
+      },
+    ];
+
+    return workbook;
   };
 
   const getDashboardMetrics =
@@ -651,7 +948,8 @@ module.exports = {
   getAlerts,
   getCentres,
   getTransactionHistory,
-  exportTransactionsToCSV,
+  // exportTransactionsToCSV,
+  exportTransactionsWorkbook,
   getDashboardMetrics,
   updateCentreConfig,
 };
