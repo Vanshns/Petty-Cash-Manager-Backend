@@ -6,6 +6,11 @@ const AppError = require(
   "../utils/AppError"
 );
 
+
+
+const notificationService = require("./notification.service");
+
+
 const addFunds = async ({ centreId, amount, note, accountantId }) => {
   return prisma.$transaction(async (tx) => {
     const centre = await tx.centre.findUnique({
@@ -27,8 +32,9 @@ const addFunds = async ({ centreId, amount, note, accountantId }) => {
     });
 
     // 2. Log the transaction item to the wallet ledger
-    await tx.walletLedger.create({
+    await tx.walletledger.create({
       data: {
+        
         centreId,
         amount,
         type: "CREDIT",
@@ -96,8 +102,9 @@ const deductFunds = async ({ centreId, amount, note, accountantId }) => {
     });
 
     // 3. Log the transaction item to the wallet ledger
-    await tx.walletLedger.create({
+    await tx.walletledger.create({
       data: {
+        
         centreId,
         amount: deductionAmount,
         type: "DEBIT",
@@ -193,24 +200,453 @@ const getPendingTransactions =
   };
 
 
-const approveTransaction = async ({
-  transactionId,
-  accountantId,
-}) => {
-  return prisma.$transaction(async (tx) => {
+// const approveTransaction = async ({
+//   transactionId,
+//   accountantId,
+// }) => {
+//   return prisma.$transaction(async (tx) => {
+//     /*
+//     |--------------------------------------------------------------------------
+//     | Fetch transaction - FIXED (Removed invalid include statement)
+//     |--------------------------------------------------------------------------
+//     */
+//     const transaction =
+//       await tx.transaction.findUnique({
+//         where: {
+//           id: transactionId,
+//         },
+//         include: {
+//           centre: true,
+//           // ❌ REMOVED "bill: true" since billImageUrl is an absolute string value, not a relation
+//         },
+//       });
+
+//     /*
+//     |--------------------------------------------------------------------------
+//     | Validations
+//     |--------------------------------------------------------------------------
+//     */
+//     if (!transaction) {
+//       throw new AppError(
+//         "Transaction not found",
+//         404
+//       );
+//     }
+
+//     if (
+//       transaction.status !==
+//       "PENDING_APPROVAL"
+//     ) {
+//       throw new AppError(
+//         "Transaction is not pending approval",
+//         400
+//       );
+//     }
+
+//     /*
+//     |--------------------------------------------------------------------------
+//     | Check centre balance BEFORE approval
+//     |--------------------------------------------------------------------------
+//     */
+//     if (
+//       Number(
+//         transaction.centre.balance
+//       ) < Number(transaction.amount)
+//     ) {
+//       throw new AppError(
+//         "Insufficient centre balance",
+//         400
+//       );
+//     }
+
+//     /*
+//     |--------------------------------------------------------------------------
+//     | Deduct balance
+//     |--------------------------------------------------------------------------
+//     */
+//     const updatedCentre =
+//       await tx.centre.update({
+//         where: {
+//           id: transaction.centre.id,
+//         },
+//         data: {
+//           balance: {
+//             decrement:
+//               transaction.amount,
+//           },
+//         },
+//       });
+
+//     /*
+//     |--------------------------------------------------------------------------
+//     | Approve transaction - FIXED Status Routing
+//     |--------------------------------------------------------------------------
+//     */
+//     // Check if billImageUrl contains an existing uploaded string path
+//     const finalStatus = (transaction.billImageUrl && transaction.billImageUrl.trim() !== "")
+//       ? "APPROVED_COMPLETED" 
+//       : "APPROVED_PENDING_BILL";
+
+//     const updatedTransaction =
+//       await tx.transaction.update({
+//         where: {
+//           id: transactionId,
+//         },
+//         data: {
+//           status: finalStatus, // Applied dynamically
+
+//           approvedById:
+//             accountantId,
+
+//           approvedAt:
+//             new Date(),
+//         },
+//       });
+
+//     /*
+//     |--------------------------------------------------------------------------
+//     | Create low balance alert
+//     |--------------------------------------------------------------------------
+//     */
+//     if (
+//       Number(updatedCentre.balance) <
+//       Number(
+//         updatedCentre.minimumBalance
+//       )
+//     ) {
+//       const existingAlert =
+//         await tx.alert.findFirst({
+//           where: {
+//             centreId:
+//               updatedCentre.id,
+//             type:
+//               "LOW_BALANCE",
+//             isResolved: false,
+//           },
+//         });
+
+//       if (!existingAlert) {
+//         await tx.alert.create({
+//           data: {
+//             centreId:
+//               updatedCentre.id,
+//             type:
+//               "LOW_BALANCE",
+//             message:
+//               "Centre balance below minimum threshold",
+//             isResolved: false,
+//           },
+//         });
+//       }
+//     }
+
+//     return updatedTransaction;
+//   });
+// };
+
+
+
+const approveTransaction =
+  async ({
+    transactionId,
+    accountantId,
+  }) => {
+
+    const updatedTransaction =
+      await prisma.$transaction(
+        async (tx) => {
+
+          /*
+          |--------------------------------------------------------------------------
+          | Fetch transaction
+          |--------------------------------------------------------------------------
+          */
+
+          const transaction =
+            await tx.transaction.findUnique({
+              where: {
+                id: transactionId,
+              },
+
+              include: {
+                centre: {
+                  include: {
+                    account: true,
+                  },
+                },
+              },
+            });
+
+          /*
+          |--------------------------------------------------------------------------
+          | Validations
+          |--------------------------------------------------------------------------
+          */
+
+          if (!transaction) {
+            throw new AppError(
+              "Transaction not found",
+              404
+            );
+          }
+
+          if (
+            transaction.status !==
+            "PENDING_APPROVAL"
+          ) {
+            throw new AppError(
+              "Transaction is not pending approval",
+              400
+            );
+          }
+
+          /*
+          |--------------------------------------------------------------------------
+          | Check centre balance
+          |--------------------------------------------------------------------------
+          */
+
+          if (
+            Number(
+              transaction.centre.balance
+            ) <
+            Number(transaction.amount)
+          ) {
+            throw new AppError(
+              "Insufficient centre balance",
+              400
+            );
+          }
+
+          /*
+          |--------------------------------------------------------------------------
+          | Deduct centre balance
+          |--------------------------------------------------------------------------
+          */
+
+          const updatedCentre =
+            await tx.centre.update({
+              where: {
+                id:
+                  transaction.centre.id,
+              },
+
+              data: {
+                balance: {
+                  decrement:
+                    transaction.amount,
+                },
+              },
+            });
+
+          /*
+          |--------------------------------------------------------------------------
+          | Determine final status
+          |--------------------------------------------------------------------------
+          */
+
+          const finalStatus =
+            (
+              transaction.billImageUrl &&
+              transaction.billImageUrl.trim() !==
+                ""
+            )
+              ? "APPROVED_COMPLETED"
+              : "APPROVED_PENDING_BILL";
+
+          /*
+          |--------------------------------------------------------------------------
+          | Update transaction
+          |--------------------------------------------------------------------------
+          */
+
+          const updatedTransaction =
+            await tx.transaction.update({
+              where: {
+                id: transactionId,
+              },
+
+              data: {
+                status: finalStatus,
+
+                approvedById:
+                  accountantId,
+
+                approvedAt:
+                  new Date(),
+              },
+            });
+
+          /*
+          |--------------------------------------------------------------------------
+          | Low balance alert
+          |--------------------------------------------------------------------------
+          */
+
+          if (
+            Number(
+              updatedCentre.balance
+            ) <
+            Number(
+              updatedCentre.minimumBalance
+            )
+          ) {
+
+            const existingAlert =
+              await tx.alert.findFirst({
+                where: {
+                  centreId:
+                    updatedCentre.id,
+
+                  type:
+                    "LOW_BALANCE",
+
+                  isResolved: false,
+                },
+              });
+
+            if (!existingAlert) {
+
+              await tx.alert.create({
+                data: {
+                  centreId:
+                    updatedCentre.id,
+
+                  type:
+                    "LOW_BALANCE",
+
+                  message:
+                    "Centre balance below minimum threshold",
+
+                  isResolved: false,
+                },
+              });
+
+            }
+          }
+
+          return {
+            updatedTransaction,
+
+            centreAccountId:
+              transaction.centre
+                .account.id,
+          };
+        }
+      );
+
     /*
     |--------------------------------------------------------------------------
-    | Fetch transaction - FIXED (Removed invalid include statement)
+    | Send notification AFTER transaction completes
     |--------------------------------------------------------------------------
     */
+
+    await notificationService
+      .createAndSendNotification({
+
+        accountId:
+          updatedTransaction
+            .centreAccountId,
+
+        type:
+          "TRANSACTION_APPROVED",
+
+        title:
+          "Transaction Approved",
+
+        message:
+          `Your transaction has been approved.`,
+
+        metadata: {
+          screen:"Transactions",
+          transactionId,
+        },
+      });
+
+    return updatedTransaction
+      .updatedTransaction;
+};
+
+// const rejectTransaction = async ({
+//   transactionId,
+//   rejectionReason,
+//   accountantId,
+// }) => {
+//   const transaction =
+//     await prisma.transaction.findUnique({
+//       where: {
+//         id: transactionId,
+//       },
+//     });
+
+//   /*
+//   |--------------------------------------------------------------------------
+//   | Validations
+//   |--------------------------------------------------------------------------
+//   */
+
+//   if (!transaction) {
+//     throw new AppError(
+//       "Transaction not found",
+//       404
+//     );
+//   }
+
+//   if (
+//     transaction.status !==
+//     "PENDING_APPROVAL"
+//   ) {
+//     throw new AppError(
+//       "Transaction is not pending approval",
+//       400
+//     );
+//   }
+
+//   /*
+//   |--------------------------------------------------------------------------
+//   | Reject transaction
+//   |--------------------------------------------------------------------------
+//   */
+
+//   return prisma.transaction.update({
+//     where: {
+//       id: transactionId,
+//     },
+
+//     data: {
+//       status: "REJECTED",
+
+//       approvedById:
+//         accountantId,
+
+//       approvedAt:
+//         new Date(),
+
+//       rejectionReason,
+//     },
+//   });
+// };
+
+
+const rejectTransaction =
+  async ({
+    transactionId,
+    rejectionReason,
+    accountantId,
+  }) => {
+
     const transaction =
-      await tx.transaction.findUnique({
+      await prisma.transaction.findUnique({
         where: {
           id: transactionId,
         },
+
         include: {
-          centre: true,
-          // ❌ REMOVED "bill: true" since billImageUrl is an absolute string value, not a relation
+          centre: {
+            include: {
+              account: true,
+            },
+          },
         },
       });
 
@@ -219,6 +655,7 @@ const approveTransaction = async ({
     | Validations
     |--------------------------------------------------------------------------
     */
+
     if (!transaction) {
       throw new AppError(
         "Transaction not found",
@@ -238,165 +675,59 @@ const approveTransaction = async ({
 
     /*
     |--------------------------------------------------------------------------
-    | Check centre balance BEFORE approval
+    | Reject transaction
     |--------------------------------------------------------------------------
     */
-    if (
-      Number(
-        transaction.centre.balance
-      ) < Number(transaction.amount)
-    ) {
-      throw new AppError(
-        "Insufficient centre balance",
-        400
-      );
-    }
-
-    /*
-    |--------------------------------------------------------------------------
-    | Deduct balance
-    |--------------------------------------------------------------------------
-    */
-    const updatedCentre =
-      await tx.centre.update({
-        where: {
-          id: transaction.centre.id,
-        },
-        data: {
-          balance: {
-            decrement:
-              transaction.amount,
-          },
-        },
-      });
-
-    /*
-    |--------------------------------------------------------------------------
-    | Approve transaction - FIXED Status Routing
-    |--------------------------------------------------------------------------
-    */
-    // Check if billImageUrl contains an existing uploaded string path
-    const finalStatus = (transaction.billImageUrl && transaction.billImageUrl.trim() !== "")
-      ? "APPROVED_COMPLETED" 
-      : "APPROVED_PENDING_BILL";
 
     const updatedTransaction =
-      await tx.transaction.update({
+      await prisma.transaction.update({
         where: {
           id: transactionId,
         },
+
         data: {
-          status: finalStatus, // Applied dynamically
+          status: "REJECTED",
 
           approvedById:
             accountantId,
 
           approvedAt:
             new Date(),
+
+          rejectionReason,
         },
       });
 
     /*
     |--------------------------------------------------------------------------
-    | Create low balance alert
+    | Send notification
     |--------------------------------------------------------------------------
     */
-    if (
-      Number(updatedCentre.balance) <
-      Number(
-        updatedCentre.minimumBalance
-      )
-    ) {
-      const existingAlert =
-        await tx.alert.findFirst({
-          where: {
-            centreId:
-              updatedCentre.id,
-            type:
-              "LOW_BALANCE",
-            isResolved: false,
-          },
-        });
 
-      if (!existingAlert) {
-        await tx.alert.create({
-          data: {
-            centreId:
-              updatedCentre.id,
-            type:
-              "LOW_BALANCE",
-            message:
-              "Centre balance below minimum threshold",
-            isResolved: false,
-          },
-        });
-      }
-    }
+    await notificationService
+      .createAndSendNotification({
+
+        accountId:
+          transaction.centre
+            .account.id,
+
+        type:
+          "TRANSACTION_REJECTED",
+
+        title:
+          "Transaction Rejected",
+
+        message:
+          `Your transaction was rejected.`,
+
+        metadata: {
+          screen:"TransactionHistory",
+          transactionId,
+        },
+      });
 
     return updatedTransaction;
-  });
-};
-
-
-const rejectTransaction = async ({
-  transactionId,
-  rejectionReason,
-  accountantId,
-}) => {
-  const transaction =
-    await prisma.transaction.findUnique({
-      where: {
-        id: transactionId,
-      },
-    });
-
-  /*
-  |--------------------------------------------------------------------------
-  | Validations
-  |--------------------------------------------------------------------------
-  */
-
-  if (!transaction) {
-    throw new AppError(
-      "Transaction not found",
-      404
-    );
-  }
-
-  if (
-    transaction.status !==
-    "PENDING_APPROVAL"
-  ) {
-    throw new AppError(
-      "Transaction is not pending approval",
-      400
-    );
-  }
-
-  /*
-  |--------------------------------------------------------------------------
-  | Reject transaction
-  |--------------------------------------------------------------------------
-  */
-
-  return prisma.transaction.update({
-    where: {
-      id: transactionId,
-    },
-
-    data: {
-      status: "REJECTED",
-
-      approvedById:
-        accountantId,
-
-      approvedAt:
-        new Date(),
-
-      rejectionReason,
-    },
-  });
-};
+  };
 
 const getAlerts = async () => {
   return prisma.alert.findMany({
@@ -484,7 +815,7 @@ const getTransactionHistory =
         include: {
           centre: true,
           category: true,
-          approvedBy: true,
+          account: true,
         },
 
         orderBy: {
@@ -532,7 +863,7 @@ const getTransactionHistory =
         new Date(endDate);
     }
     console.log(Object.keys(prisma));
-    return prisma.walletLedger.findMany({
+    return prisma.walletledger.findMany({
       where,
 
       include: {

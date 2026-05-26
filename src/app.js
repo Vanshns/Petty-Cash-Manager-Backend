@@ -38,6 +38,9 @@ app.use("/api/centre", centreRoutes);
 const categoryRoutes = require("./routes/category.routes");
 app.use("/api/categories",categoryRoutes);
 
+const deviceRoutes = require("./routes/device.routes");
+app.use("/api/devices", deviceRoutes);
+
 app.use(errorMiddleware);
 
 module.exports = app;

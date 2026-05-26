@@ -8,21 +8,26 @@ datasource db {
 }
 
 model account {
-  id           String         @id
+  id           String         @id @default(uuid())
   username     String         @unique(map: "Account_username_key")
   passwordHash String
   role         account_role
+
   createdAt    DateTime       @default(now())
-  updatedAt    DateTime
+  updatedAt    DateTime       @updatedAt
+
   auditlog     auditlog[]
   centre       centre?
   refreshtoken refreshtoken[]
   transaction  transaction[]
   walletledger walletledger[]
+
+  device       device[]
+  notification notification[]
 }
 
 model alert {
-  id         String     @id
+  id         String     @id @default(uuid())
   centreId   String
   message    String
   isResolved Boolean    @default(false)
@@ -34,7 +39,7 @@ model alert {
 }
 
 model auditlog {
-  id         String   @id
+  id         String   @id @default(uuid())
   accountId  String
   action     String
   entityType String
@@ -47,23 +52,23 @@ model auditlog {
 }
 
 model category {
-  id          String        @id
+  id          String        @id @default(uuid())
   name        String        @unique(map: "Category_name_key")
   createdAt   DateTime      @default(now())
   isActive    Boolean       @default(true)
-  updatedAt   DateTime      @default(now())
+  updatedAt DateTime @updatedAt
   transaction transaction[]
 }
 
 model centre {
-  id               String         @id
+  id               String         @id @default(uuid())
   name             String         @unique(map: "Centre_name_key")
   balance          Decimal        @db.Decimal(12, 2)
   minimumBalance   Decimal        @db.Decimal(12, 2)
   transactionLimit Decimal        @db.Decimal(12, 2)
   accountId        String         @unique(map: "Centre_accountId_key")
   createdAt        DateTime       @default(now())
-  updatedAt        DateTime
+  updatedAt DateTime @updatedAt
   alert            alert[]
   account          account        @relation(fields: [accountId], references: [id], map: "Centre_accountId_fkey")
   transaction      transaction[]
@@ -71,7 +76,7 @@ model centre {
 }
 
 model refreshtoken {
-  id        String   @id
+  id        String   @id @default(uuid())
   token     String   @db.Text
   accountId String
   expiresAt DateTime
@@ -82,7 +87,7 @@ model refreshtoken {
 }
 
 model transaction {
-  id              String             @id
+  id              String             @id @default(uuid())
   amount          Decimal            @db.Decimal(12, 2)
   description     String?
   status          transaction_status
@@ -92,7 +97,7 @@ model transaction {
   approvedById    String?
   approvedAt      DateTime?
   createdAt       DateTime           @default(now())
-  updatedAt       DateTime
+  updatedAt DateTime @updatedAt
   rejectionReason String?
   account         account?           @relation(fields: [approvedById], references: [id], map: "Transaction_approvedById_fkey")
   category        category           @relation(fields: [categoryId], references: [id], map: "Transaction_categoryId_fkey")
@@ -104,7 +109,7 @@ model transaction {
 }
 
 model walletledger {
-  id          String            @id
+  id          String            @id @default(uuid())
   centreId    String
   amount      Decimal           @db.Decimal(12, 2)
   type        walletledger_type
@@ -116,6 +121,47 @@ model walletledger {
 
   @@index([centreId], map: "WalletLedger_centreId_fkey")
   @@index([createdById], map: "WalletLedger_createdById_fkey")
+}
+
+model device {
+  id          String   @id @default(cuid())
+
+  accountId   String
+  account     account  @relation(fields: [accountId], references: [id])
+
+  pushToken   String   @unique
+
+  provider    push_provider
+
+  platform    device_platform
+
+  isActive    Boolean  @default(true)
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([accountId])
+}
+
+model notification {
+  id          String             @id @default(cuid())
+
+  accountId   String
+  account     account            @relation(fields: [accountId], references: [id])
+
+  type        notification_type
+
+  title       String
+  message     String
+
+  isRead      Boolean            @default(false)
+
+  metadata    Json?
+
+  createdAt   DateTime           @default(now())
+
+  @@index([accountId])
+  @@index([createdAt])
 }
 
 enum transaction_status {
@@ -139,4 +185,21 @@ enum walletledger_type {
 
 enum alert_type {
   LOW_BALANCE
+}
+
+enum push_provider {
+  EXPO
+}
+
+enum device_platform {
+  ANDROID
+  IOS
+}
+
+enum notification_type {
+  TRANSACTION_APPROVED
+  TRANSACTION_REJECTED
+  TRANSACTION_PENDING_APPROVAL
+  LOW_BALANCE
+  SYSTEM
 }

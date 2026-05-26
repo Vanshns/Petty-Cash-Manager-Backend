@@ -38,13 +38,32 @@ const login = async ({ username, password }) => {
 
   const refreshToken = generateRefreshToken(payload);
 
-  await prisma.refreshToken.create({
+  // await prisma.refreshtoken.create({
+  //   data: {
+  //     token: refreshToken,
+  //     accountId: account.id,
+  //     expiresAt: new Date(
+  //       Date.now() + 7 * 24 * 60 * 60 * 1000
+  //     ),
+  //   },
+  // });
+
+  
+
+  await prisma.refreshtoken.create({
     data: {
+      
+
       token: refreshToken,
-      accountId: account.id,
-      expiresAt: new Date(
-        Date.now() + 7 * 24 * 60 * 60 * 1000
-      ),
+
+      accountId:
+        account.id,
+
+      expiresAt:
+        new Date(
+          Date.now() +
+          7 * 24 * 60 * 60 * 1000
+        ),
     },
   });
 
@@ -62,7 +81,7 @@ const refreshAccessToken = async (token) => {
     throw new Error("Refresh token missing");
   }
 
-  const storedToken = await prisma.refreshToken.findFirst({
+  const storedToken = await prisma.refreshtoken.findFirst({
     where: {
       token,
     },
@@ -98,7 +117,7 @@ const refreshAccessToken = async (token) => {
 const logout = async (token) => {
   if (!token) return;
 
-  await prisma.refreshToken.deleteMany({
+  await prisma.refreshtoken.deleteMany({
     where: {
       token,
     },

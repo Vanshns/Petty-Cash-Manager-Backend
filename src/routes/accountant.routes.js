@@ -10,6 +10,7 @@ const roleMiddleware = require(
   "../middleware/role.middleware"
 );
 
+
 const ROLES = require("../constants/roles");
 
 router.use(authMiddleware);
