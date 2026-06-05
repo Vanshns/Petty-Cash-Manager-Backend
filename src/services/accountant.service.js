@@ -862,13 +862,12 @@ const getTransactionHistory =
       where.createdAt.lte =
         new Date(endDate);
     }
-    console.log(Object.keys(prisma));
     return prisma.walletledger.findMany({
       where,
 
       include: {
         centre: true,
-        createdBy: true,
+        account: true,
       },
 
       orderBy: {
@@ -1150,7 +1149,7 @@ const exportTransactionsWorkbook =
         note: l.note || "",
 
         accountant:
-          l.createdBy
+          l.account
             ?.username || "",
       });
     });

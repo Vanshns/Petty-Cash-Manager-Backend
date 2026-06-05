@@ -18,6 +18,13 @@ app.use(express.json());
 
 app.use(cookieParser());
 
+app.get("/health", (req, res) => {
+  console.log("HEALTH HIT");
+  res.json({
+    success: true,
+    message: "Backend alive",
+  });
+});
 
 // Auth Routes
 const authRoutes = require("./routes/auth.routes");
