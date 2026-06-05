@@ -753,89 +753,60 @@ const getCentres = async () => {
   });
 };
 
-const getTransactionHistory =
-  async ({
-    status,
-    startDate,
-    endDate,
-    centreId,
-    page = 1,
-    limit = 10,
-  }) => {
-    const where = {};
 
-    if (status) {
-      where.status = status;
-    }
+const getTransactionHistory = async ({
+  status,
+  startDate,
+  endDate,
+  centreId,
+}) => {
+  const where = {};
 
-    if (centreId) {
-      where.centreId = centreId;
-    }
+  if (status) {
+    where.status = status;
+  }
 
-    if (startDate || endDate) {
-      where.createdAt = {};
-    }
+  if (centreId) {
+    where.centreId = centreId;
+  }
 
-    if (startDate) {
-      where.createdAt.gte = new Date(
-        startDate
-      );
-    }
+  if (startDate || endDate) {
+    where.createdAt = {};
+  }
 
-    if (endDate) {
-      where.createdAt.lte = new Date(
-        endDate
-      );
-    }
+  if (startDate) {
+    where.createdAt.gte = new Date(startDate);
+  }
 
-    const skip = (page - 1) * limit;
+  if (endDate) {
+    const end = new Date(endDate);
+    end.setHours(23, 59, 59, 999);
 
-    // return prisma.transaction.findMany({
-    //   where,
+    where.createdAt.lte = end;
+  }
 
-    //   include: {
-    //     centre: true,
-    //     category: true,
-    //     approvedBy: true,
-    //   },
+  const transactions = await prisma.transaction.findMany({
+    where,
 
-    //   orderBy: {
-    //     createdAt: "desc",
-    //   },
+    include: {
+      centre: true,
+      category: true,
+      account: true,
+    },
 
-    //   skip,
+    orderBy: {
+      createdAt: "desc",
+    },
+  });
 
-    //   take: limit,
-    // });
+  return transactions.map((transaction) => ({
+    ...transaction,
 
-    const transactions =
-      await prisma.transaction.findMany({
-        where,
-
-        include: {
-          centre: true,
-          category: true,
-          account: true,
-        },
-
-        orderBy: {
-          createdAt: "desc",
-        },
-
-        skip,
-
-        take: limit,
-      });
-
-    return transactions.map((transaction) => ({
-      ...transaction,
-
-      billImageUrl:
-        transaction.billImageUrl
-          ? `${process.env.FILE_BASE_URL}/${transaction.billImageUrl}`
-          : null,
-    }));
-  };
+    billImageUrl: transaction.billImageUrl
+      ? `${process.env.FILE_BASE_URL}/${transaction.billImageUrl}`
+      : null,
+  }));
+};
 
   const getWalletLedgerHistory =
   async ({
