@@ -1016,7 +1016,7 @@ const exportTransactionsWorkbook =
           t.category?.name || "",
 
         approvedBy:
-          t.approvedBy
+          t.account
             ?.username || "",
 
         createdAt:

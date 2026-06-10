@@ -291,7 +291,7 @@ const getWalletLedgerAuditLogs = async ({ centreId, page = 1, limit = 20 }) => {
     }
 
     const [ledgers, totalRecords] = await prisma.$transaction([
-      prisma.walletLedger.findMany({
+      prisma.walletledger.findMany({
         where: queryConditions,
         orderBy: {
           createdAt: 'desc',
@@ -305,7 +305,7 @@ const getWalletLedgerAuditLogs = async ({ centreId, page = 1, limit = 20 }) => {
               name: true,
             },
           },
-          createdBy: { 
+          account: { 
             select: {
               id: true,
               username: true, // 🌟 FIXED: Changed from 'name' to 'username' to match your schema's fields
@@ -314,7 +314,7 @@ const getWalletLedgerAuditLogs = async ({ centreId, page = 1, limit = 20 }) => {
           },
         },
       }),
-      prisma.walletLedger.count({
+      prisma.walletledger.count({
         where: queryConditions,
       }),
     ]);
@@ -331,10 +331,10 @@ const getWalletLedgerAuditLogs = async ({ centreId, page = 1, limit = 20 }) => {
         ...log,
         amount: log.amount ? parseFloat(log.amount.toString()) : 0,
         // Map username to name here so your frontend properties don't break
-        account: log.createdBy ? {
-          id: log.createdBy.id,
-          name: log.createdBy.username, // 🌟 Safely aliases 'username' as 'name' for frontend consumption
-          role: log.createdBy.role,
+        account: log.account ? {
+          id: log.account.id,
+          name: log.account.username, // 🌟 Safely aliases 'username' as 'name' for frontend consumption
+          role: log.account.role,
         } : null,
       })),
     };
